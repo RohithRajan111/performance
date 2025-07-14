@@ -17,7 +17,7 @@ class StoreUsers
 
         $user->assignRole($data['role']);
 
-         if ($data['role'] === 'Employee' && isset($data['team_id'])) {
+         if ($data['role'] === 'employee' && isset($data['team_id'])) {
             $team = Team::find($data['team_id']);
             if ($team) {
                 $team->members()->attach($user->id);

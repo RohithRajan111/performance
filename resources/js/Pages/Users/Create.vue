@@ -70,7 +70,7 @@ const submit = () => {
             </div>
 
             <!-- Team (conditionally shown if role === 'employee') -->
-            <div v-if="form.role === 'Employee'">
+            <div v-if="form.role === 'employee'">
               <InputLabel for="team_id" value="Team" />
               <select id="team_id" class="mt-1 block w-full" v-model="form.team_id" required>
                 <option value="" disabled>Select a team</option>
