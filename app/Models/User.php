@@ -58,4 +58,18 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Team::class, 'team_user', 'user_id', 'team_id');
     }
+    public function unreadNotifications()
+    {
+        return $this->notifications()->whereNull('read_at');
+    }
+
+    public function markNotificationAsRead($notificationId)
+    {
+        return $this->notifications()->where('id', $notificationId)->update(['read_at' => now()]);
+    }
+
+    public function markAllNotificationsAsRead()
+    {
+        return $this->unreadNotifications()->update(['read_at' => now()]);
+    }
 }

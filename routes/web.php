@@ -10,6 +10,7 @@ use App\Http\Controllers\LeaveApplicationController;
 use App\Http\Controllers\TimeLogController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\PerformanceReportController; // Import
+use App\Http\Controllers\NotificationController;
 
 use Illuminate\Support\Facades\Auth;
 use App\Models\Project;
@@ -96,7 +97,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/leave-calendar', [LeaveApplicationController::class, 'calendar'])
     ->middleware(['auth', 'verified'])
     ->name('leaves.calendar');
-});
+
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::get('/notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
+    Route::get('/notifications/recent', [NotificationController::class, 'getRecent'])->name('notifications.recent');});
 
 
 require __DIR__.'/auth.php';
