@@ -19,7 +19,7 @@ class Team extends Model
     // A Team has many members (Users)
     public function members()
     {
-        return $this->belongsToMany(User::class, 'team_user'); // Uses the pivot table we created
+        return $this->belongsToMany(User::class, 'team_user', 'team_id', 'user_id');
     }
 
     // A Team can have many Projects

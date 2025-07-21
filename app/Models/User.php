@@ -54,8 +54,8 @@ class User extends Authenticatable
     {
         return $this->hasMany(TimeLog::class);
     }
-    public function teams() 
+    public function teams()
     {
-        return $this->belongsToMany(Team::class, 'team_user');
+        return $this->belongsToMany(Team::class, 'team_user', 'user_id', 'team_id');
     }
 }

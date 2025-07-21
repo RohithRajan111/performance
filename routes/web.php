@@ -86,10 +86,16 @@ Route::middleware('auth')->group(function () {
     Route::resource('leave', LeaveApplicationController::class)->only(['index', 'store'])->middleware(['can:apply for leave']);
     Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])->name('leave.update')->middleware(['can:manage leave applications']);
     Route::resource('hours', TimeLogController::class)->only(['index', 'store']);
+    Route::resource('teams', TeamController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('users', UserController::class)->except(['show']);
 
     Route::resource('teams', TeamController::class)
     ->only(['index', 'store'])
     ->middleware(['can:manage employees']);
+
+    Route::get('/leave-calendar', [LeaveApplicationController::class, 'calendar'])
+    ->middleware(['auth', 'verified'])
+    ->name('leaves.calendar');
 });
 
 

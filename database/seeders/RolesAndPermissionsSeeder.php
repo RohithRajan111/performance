@@ -25,6 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
         Permission::create(['name' => 'manage leave applications']);
         Permission::create(['name' => 'manage employees']);
         Permission::create(['name' => 'manage roles']);
+        Permission::create(['name' => 'view leaves']); // <-- ADD THIS PERMISSION
 
         // Employee Role
         $employeeRole = Role::create(['name' => 'employee']);
@@ -33,10 +34,11 @@ class RolesAndPermissionsSeeder extends Seeder
         // Team Lead Role
         $teamLeadRole = Role::create(['name' => 'team-lead']);
         $teamLeadRole->givePermissionTo([
-            'assign tasks',          // Core responsibility
-            'view team progress',    // Core responsibility
-            'log working hours',     // Can log their own hours
-            'apply for leave',       // Can apply for their own leave
+            'assign tasks',
+            'view team progress',
+            'log working hours',
+            'apply for leave',
+            'view leaves', // <-- GIVE PERMISSION TO TEAM LEADS
         ]);
 
         // Project Manager Role
@@ -47,12 +49,13 @@ class RolesAndPermissionsSeeder extends Seeder
         $hrRole = Role::create(['name' => 'hr']);
         $hrRole->givePermissionTo([
             'view all working hours', 'manage leave applications', 'manage employees',
-            'manage roles', 'apply for leave'
+            'manage roles', 'apply for leave',
+            'view leaves', // <-- GIVE PERMISSION TO HR
         ]);
 
         // Admin Role
         $adminRole = Role::create(['name' => 'admin']);
-        $adminRole->givePermissionTo(Permission::all());
+        $adminRole->givePermissionTo(Permission::all()); // Admin automatically gets 'view leaves'
 
         // Create Demo Users and Team
         $leadUser = User::factory()->create([ 'name' => 'Team Lead User', 'email' => 'lead@example.com', ]);
