@@ -92,55 +92,69 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-gradient-to-tr from-indigo-50 via-white to-emerald-50 text-gray-800">
+  <div class="min-h-screen flex bg-gray-100">
     <!-- Sidebar -->
-    <aside class="w-72 bg-white border-r shadow-lg flex-col hidden md:flex">
-      <div class="flex items-center justify-center h-16 border-b px-4">
+    <aside class="w-64 bg-white shadow-md hidden md:block">
+      <div class="h-16 flex items-center justify-center border-b">
         <Link :href="route('dashboard')">
-          <ApplicationLogo class="h-9 w-auto text-indigo-600" />
+          <ApplicationLogo class="h-8 w-auto text-gray-800" />
         </Link>
       </div>
-      <nav class="flex flex-col gap-2 py-6 px-4">
+
+      <nav class="mt-4 px-4 space-y-1">
         <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
           <span class="mr-2">🏠</span> Dashboard
         </NavLink>
+
         <NavLink v-if="$page.props.auth.user.permissions.includes('manage leave applications')" :href="route('leaves.calendar')" :active="route().current('leaves.calendar')">
           <span class="mr-2">📅</span> Leave Calendar
         </NavLink>
+
         <NavLink v-if="$page.props.auth.user.permissions.includes('manage roles')" :href="route('roles.index')" :active="route().current('roles.index')">
           <span class="mr-2">🛡️</span> Manage Roles
         </NavLink>
+
         <NavLink v-if="$page.props.auth.user.permissions.includes('assign projects')" :href="route('projects.create')" :active="route().current('projects.create')">
           <span class="mr-2">📁</span> New Project
         </NavLink>
+
         <NavLink v-if="$page.props.auth.user.permissions.includes('apply for leave')" :href="route('leave.index')" :active="route().current('leave.index')">
-          <span class="mr-2">🌴</span> Apply Leave
+          <span class="mr-2">🌴</span> Apply for Leave
         </NavLink>
+
         <NavLink :href="route('hours.index')" :active="route().current('hours.index')">
           <span class="mr-2">⏱️</span> Working Hours
         </NavLink>
+
         <NavLink v-if="$page.props.auth.user.permissions.includes('manage employees')" :href="route('users.index')" :active="route().current('users.index')">
           <span class="mr-2">👥</span> Manage Employees
         </NavLink>
+
         <NavLink v-if="$page.props.auth.user.permissions.includes('manage employees')" :href="route('teams.index')" :active="route().current('teams.index')">
           <span class="mr-2">👨‍👩‍👧‍👦</span> Manage Teams
+        </NavLink>
+
+        <NavLink :href="route('company.hierarchy')" :active="route().current('company.hierarchy')">
+          <span class="mr-2">🏢</span> Company Hierarchy
         </NavLink>
       </nav>
     </aside>
 
-    <!-- Main Area -->
-    <div class="flex flex-1 flex-col min-h-screen">
-      <!-- Top Navigation Bar -->
-      <header class="bg-white border-b flex justify-between items-center shadow h-16 px-6">
+    <!-- Main Section -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top Navbar -->
+      <header class="bg-white shadow h-16 flex items-center justify-between px-6">
         <!-- Mobile Sidebar Trigger -->
-        <button class="md:hidden flex items-center text-gray-600 hover:text-indigo-600" @click="showingSidebar = !showingSidebar">
-          <svg class="h-7 w-7" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-        
-        <div class="font-semibold text-lg text-gray-800">
-          <slot name="header" />
+        <div class="flex items-center">
+          <button class="md:hidden flex items-center text-gray-600 hover:text-indigo-600 mr-4" @click="showingSidebar = !showingSidebar">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          
+          <div class="text-lg font-semibold text-gray-700">
+            <slot name="header" />
+          </div>
         </div>
-        
+
         <div class="flex items-center space-x-4">
           <!-- Notifications Dropdown -->
           <div class="relative">
@@ -232,11 +246,10 @@ onMounted(() => {
           <div>
             <Dropdown align="right" width="48">
               <template #trigger>
-                <button class="flex items-center px-3 py-2 rounded transition hover:bg-gray-100 text-gray-700 font-medium">
+                <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:text-gray-900 focus:outline-none">
                   {{ $page.props.auth.user.name }}
-                  <svg class="ml-2 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 
-                    1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                  <svg class="ml-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8l5 5 5-5" />
                   </svg>
                 </button>
               </template>
@@ -250,8 +263,67 @@ onMounted(() => {
         </div>
       </header>
 
-      <!-- Main Content -->
-      <main class="flex-1 px-2 md:px-8 py-6 bg-gradient-to-br from-indigo-50 via-white to-emerald-50">
+      <!-- Mobile Sidebar Overlay -->
+      <div 
+        v-if="showingSidebar" 
+        class="fixed inset-0 z-40 md:hidden"
+        @click="showingSidebar = false"
+      >
+        <div class="fixed inset-0 bg-black opacity-50"></div>
+        <aside class="fixed left-0 top-0 bottom-0 w-64 bg-white shadow-md z-50 transform transition-transform">
+          <div class="h-16 flex items-center justify-between border-b px-4">
+            <Link :href="route('dashboard')">
+              <ApplicationLogo class="h-8 w-auto text-gray-800" />
+            </Link>
+            <button @click="showingSidebar = false" class="text-gray-600 hover:text-gray-900">
+              <svg class="h-6 w-6" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <nav class="mt-4 px-4 space-y-1">
+            <NavLink :href="route('dashboard')" :active="route().current('dashboard')" @click="showingSidebar = false">
+              <span class="mr-2">🏠</span> Dashboard
+            </NavLink>
+
+            <NavLink v-if="$page.props.auth.user.permissions.includes('manage leave applications')" :href="route('leaves.calendar')" :active="route().current('leaves.calendar')" @click="showingSidebar = false">
+              <span class="mr-2">📅</span> Leave Calendar
+            </NavLink>
+
+            <NavLink v-if="$page.props.auth.user.permissions.includes('manage roles')" :href="route('roles.index')" :active="route().current('roles.index')" @click="showingSidebar = false">
+              <span class="mr-2">🛡️</span> Manage Roles
+            </NavLink>
+
+            <NavLink v-if="$page.props.auth.user.permissions.includes('assign projects')" :href="route('projects.create')" :active="route().current('projects.create')" @click="showingSidebar = false">
+              <span class="mr-2">📁</span> New Project
+            </NavLink>
+
+            <NavLink v-if="$page.props.auth.user.permissions.includes('apply for leave')" :href="route('leave.index')" :active="route().current('leave.index')" @click="showingSidebar = false">
+              <span class="mr-2">🌴</span> Apply for Leave
+            </NavLink>
+
+            <NavLink :href="route('hours.index')" :active="route().current('hours.index')" @click="showingSidebar = false">
+              <span class="mr-2">⏱️</span> Working Hours
+            </NavLink>
+
+            <NavLink v-if="$page.props.auth.user.permissions.includes('manage employees')" :href="route('users.index')" :active="route().current('users.index')" @click="showingSidebar = false">
+              <span class="mr-2">👥</span> Manage Employees
+            </NavLink>
+
+            <NavLink v-if="$page.props.auth.user.permissions.includes('manage employees')" :href="route('teams.index')" :active="route().current('teams.index')" @click="showingSidebar = false">
+              <span class="mr-2">👨‍👩‍👧‍👦</span> Manage Teams
+            </NavLink>
+
+            <NavLink :href="route('company.hierarchy')" :active="route().current('company.hierarchy')" @click="showingSidebar = false">
+              <span class="mr-2">🏢</span> Company Hierarchy
+            </NavLink>
+          </nav>
+        </aside>
+      </div>
+
+      <!-- Page Content -->
+      <main class="flex-1 p-4">
         <slot />
       </main>
     </div>

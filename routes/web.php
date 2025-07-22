@@ -1,29 +1,41 @@
 <?php
 
+use App\Http\Controllers\LeaveApplicationController;
+use App\Http\Controllers\PerformanceReportController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\UserHierarchyController;
+use App\Http\Controllers\TeamController;
+use App\Http\Controllers\TimeLogController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProjectController; 
-use App\Http\Controllers\LeaveApplicationController;
-use App\Http\Controllers\TimeLogController;
-use App\Http\Controllers\TeamController;
-use App\Http\Controllers\PerformanceReportController; // Import
-use App\Http\Controllers\NotificationController;
-
-use Illuminate\Support\Facades\Auth;
-use App\Models\Project;
+use App\Models\LeaveApplication;
+use App\Models\Task;
 use App\Models\Team;
-
-use App\Http\Controllers\UserController; // Import at the top
-use App\Models\Task; // <-- IMPORT TASK MODEL
-use App\Models\LeaveApplication; // <-- IMPORT LEAVE APPLICATION MODEL
 use App\Models\User;
-use App\Models\TimeLog; // <-- IMPORT TIME LOG MODEL
+use App\Models\Project;
+use App\Models\TimeLog;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
+// Make login page the landing page for guests
 Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+    return Inertia::render('Auth/Login', [
+        'canResetPassword' => Route::has('password.request'),
+        'canRegister' => Route::has('register'),
+        'status' => session('status'),
+    ]);
+})->middleware('guest')->name('login');
+
+// Keep the original welcome page accessible at /welcome (optional)
+Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
@@ -32,8 +44,8 @@ Route::get('/', function () {
     ]);
 });
 
-    Route::get('/dashboard', function () {
-    $user =Auth::user();
+Route::get('/dashboard', function () {
+    $user = Auth::user();
     $projects = collect();
     $myTasks = collect();
     $pendingLeaveRequests = collect();
@@ -41,7 +53,10 @@ Route::get('/', function () {
 
     // HR & Admin Logic
     if ($user->hasRole('admin') || $user->hasRole('hr')) {
-        $pendingLeaveRequests = LeaveApplication::where('status', 'pending')->with('user:id,name')->latest()->get();
+        $pendingLeaveRequests = LeaveApplication::where('status', 'pending')
+            ->with('user:id,name')
+            ->latest()
+            ->get();
         $stats['employee_count'] = User::count();
     }
 
@@ -57,9 +72,12 @@ Route::get('/', function () {
         $projects = Project::whereIn('team_id', $teamIds)->get();
     }
     
-    // Task Logic for Employee, Team Lead, Admin
+    // Task Logic - Using correct field names
     if ($user->hasRole('employee') || $user->hasRole('team-lead') || $user->hasRole('admin')) {
-        $myTasks = Task::where('assigned_to_id', $user->id)->with('project:id,name')->latest()->get();
+        $myTasks = Task::where('assigned_to_id', $user->id)
+            ->with('project:id,name')
+            ->latest()
+            ->get(['id', 'name', 'status', 'project_id', 'created_at']);
     }
 
     return Inertia::render('Dashboard', [
@@ -70,40 +88,65 @@ Route::get('/', function () {
     ]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-
 Route::middleware('auth')->group(function () {
+    // Profile routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
-    // All other application routes
-    Route::resource('users', UserController::class)->only(['index', 'create', 'store'])->middleware(['can:manage employees']);
-    Route::get('/performance/{user}', [\App\Http\Controllers\PerformanceReportController::class, 'show'])->name('performance.show')->middleware(['can:manage employees']);
-    Route::resource('roles', RoleController::class)->only(['index', 'store', 'edit', 'update'])->middleware(['can:manage roles']);
+
+    // User management routes (consolidated - removed duplicates)
+    Route::resource('users', UserController::class)->except(['show'])->middleware(['can:manage employees']);
+    Route::get('/performance/{user}', [PerformanceReportController::class, 'show'])
+        ->name('performance.show')
+        ->middleware(['can:manage employees']);
+
+    // Role management routes
+    Route::resource('roles', RoleController::class)
+        ->only(['index', 'store', 'edit', 'update'])
+        ->middleware(['can:manage roles']);
+
+    // Project routes
     Route::resource('projects', ProjectController::class)->only(['create', 'store']);
     Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+
+    // Task routes
     Route::post('/projects/{project}/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::patch('/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
-    Route::resource('leave', LeaveApplicationController::class)->only(['index', 'store'])->middleware(['can:apply for leave']);
-    Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])->name('leave.update')->middleware(['can:manage leave applications']);
-    Route::resource('hours', TimeLogController::class)->only(['index', 'store']);
-    Route::resource('teams', TeamController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::resource('users', UserController::class)->except(['show']);
 
-    Route::resource('teams', TeamController::class)
-    ->only(['index', 'store'])
-    ->middleware(['can:manage employees']);
+    // Leave application routes
+    Route::resource('leave', LeaveApplicationController::class)
+        ->only(['index', 'store'])
+        ->middleware(['can:apply for leave']);
+    Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])
+        ->name('leave.update')
+        ->middleware(['can:manage leave applications']);
+    Route::delete('/leave/{leave_application}/cancel', [LeaveApplicationController::class, 'cancel'])
+        ->name('leave.cancel')
+        ->middleware(['auth', 'can:apply for leave']);
 
+    // Leave calendar route (removed duplicate)
     Route::get('/leave-calendar', [LeaveApplicationController::class, 'calendar'])
-    ->middleware(['auth', 'verified'])
-    ->name('leaves.calendar');
+        ->middleware(['auth', 'verified'])
+        ->name('leaves.calendar');
 
+    // Time logging routes
+    Route::resource('hours', TimeLogController::class)->only(['index', 'store']);
 
+    // Team management routes (consolidated - removed duplicates)
+    Route::resource('teams', TeamController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->middleware(['can:manage employees']);
+
+    // Company hierarchy route
+    Route::get('/company-hierarchy', [UserHierarchyController::class, 'index'])
+        ->name('company.hierarchy');
+
+    // Notification routes
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::get('/notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
-    Route::get('/notifications/recent', [NotificationController::class, 'getRecent'])->name('notifications.recent');});
-
+    Route::get('/notifications/recent', [NotificationController::class, 'getRecent'])->name('notifications.recent');
+});
 
 require __DIR__.'/auth.php';

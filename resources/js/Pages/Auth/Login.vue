@@ -1,6 +1,5 @@
 <script setup>
 import Checkbox from '@/Components/Checkbox.vue';
-import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -9,6 +8,9 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 
 defineProps({
     canResetPassword: {
+        type: Boolean,
+    },
+    canRegister: {
         type: Boolean,
     },
     status: {
@@ -30,71 +32,242 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Log in" />
+    <Head title="Log in" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
-            {{ status }}
+    <div class="min-h-screen antialiased bg-stone-100 flex">
+        <!-- Left Panel: Branding & Visual -->
+        <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-amber-100 to-orange-100 relative items-center justify-center p-12">
+            <!-- Subtle animated background pattern -->
+            <div class="absolute inset-0 opacity-20">
+                <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <path
+                        d="M0,50 L100,50 M50,0 L50,100"
+                        stroke="#d97706"
+                        stroke-width="0.5"
+                        stroke-dasharray="5 5"
+                        class="animate-move-dash"
+                    />
+                </svg>
+            </div>
+
+            <!-- Animated work illustration -->
+            <div class="relative z-10 text-center text-stone-700">
+                <div class="w-40 h-40 mx-auto mb-8">
+                    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Office building with subtle pulse -->
+                        <path
+                            d="M50 50V150H150V50H50Z"
+                            stroke="#92400e"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="animate-pulse-opacity"
+                        />
+                        <path
+                            d="M70 70V100H90V70H70Z"
+                            stroke="#b45309"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="animate-pulse-opacity"
+                            style="animation-delay: 0.3s;"
+                        />
+                        <path
+                            d="M110 70V100H130V70H110Z"
+                            stroke="#b45309"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="animate-pulse-opacity"
+                            style="animation-delay: 0.6s;"
+                        />
+
+                        <!-- Progress bars with continuous growing/shrinking animation -->
+                        <rect
+                            x="30" y="30" width="10" height="20"
+                            fill="#f59e0b" fill-opacity="0.7"
+                            class="animate-graph-pulse"
+                            style="transform-origin: bottom; animation-delay: 0.4s;"
+                        />
+                        <rect
+                            x="45" y="40" width="10" height="10"
+                            fill="#fbbf24" fill-opacity="0.5"
+                            class="animate-graph-pulse"
+                            style="transform-origin: bottom; animation-delay: 0.6s;"
+                        />
+                        <rect
+                            x="60" y="20" width="10" height="30"
+                            fill="#fcd34d" fill-opacity="0.9"
+                            class="animate-graph-pulse"
+                            style="transform-origin: bottom; animation-delay: 0.8s;"
+                        />
+
+                        <!-- Clock with ticking animation -->
+                        <circle
+                            cx="170"
+                            cy="40"
+                            r="15"
+                            stroke="#92400e"
+                            stroke-width="1.5"
+                            class="animate-rotate"
+                            style="transform-origin: 170px 40px; animation-delay: 1s;"
+                        />
+                        <path
+                            d="M170 40V30"
+                            stroke="#92400e"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            class="animate-rotate"
+                            style="transform-origin: 170px 40px;"
+                        />
+                        <path
+                            d="M170 40H175"
+                            stroke="#b45309"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            class="animate-rotate-fast"
+                            style="transform-origin: 170px 40px; animation-delay: 0.5s;"
+                        />
+                    </svg>
+                </div>
+
+                <h1 class="text-4xl font-bold mb-3 animate-fade-in text-amber-800">WorkSphere</h1>
+                <p class="text-lg opacity-90 max-w-md mx-auto animate-fade-in text-stone-600" style="animation-delay: 0.3s;">
+                    The modern way to manage your team's productivity
+                </p>
+            </div>
         </div>
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="email" value="Email" />
+        <!-- Right Panel: Login Form -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-stone-50">
+            <div class="w-full max-w-md animate-fade-in" style="animation-delay: 0.2s;">
+                <div class="text-center lg:text-left mb-8">
+                    <h2 class="text-2xl font-bold text-stone-800">Welcome back</h2>
+                    <p class="mt-2 text-stone-600">
+                        Sign in to continue to your dashboard
+                    </p>
+                </div>
 
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
+                <div v-if="status" class="mb-4 font-medium text-sm text-amber-600">
+                    {{ status }}
+                </div>
 
-                <InputError class="mt-2" :message="form.errors.email" />
+                <form @submit.prevent="submit" class="space-y-5">
+                    <div>
+                        <InputLabel for="email" value="Email" class="mb-1 text-stone-700"/>
+                        <TextInput
+                            id="email"
+                            type="email"
+                            class="mt-1 block w-full border-stone-300 focus:border-amber-400 focus:ring focus:ring-amber-200 focus:ring-opacity-50 rounded-md shadow-sm"
+                            v-model="form.email"
+                            required
+                            autofocus
+                            autocomplete="username"
+                            placeholder="you@company.com"
+                        />
+                        <InputError class="mt-1" :message="form.errors.email" />
+                    </div>
+
+                    <div>
+                        <InputLabel for="password" value="Password" class="mb-1 text-stone-700"/>
+                        <TextInput
+                            id="password"
+                            type="password"
+                            class="mt-1 block w-full border-stone-300 focus:border-amber-400 focus:ring focus:ring-amber-200 focus:ring-opacity-50 rounded-md shadow-sm"
+                            v-model="form.password"
+                            required
+                            autocomplete="current-password"
+                            placeholder="••••••••"
+                        />
+                        <InputError class="mt-1" :message="form.errors.password" />
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center">
+                            <Checkbox name="remember" v-model:checked="form.remember" class="rounded border-gray-300 text-amber-600 shadow-sm focus:ring-amber-500" />
+                            <span class="ml-2 text-sm text-stone-600">Remember me</span>
+                        </label>
+
+                        <Link
+                            v-if="canResetPassword"
+                            :href="route('password.request')"
+                            class="text-sm text-amber-600 hover:text-amber-500 font-medium"
+                        >
+                            Forgot password?
+                        </Link>
+                    </div>
+
+                    <div>
+                        <PrimaryButton class="w-full justify-center py-2.5 bg-amber-600 hover:bg-amber-700 focus:bg-amber-700 active:bg-amber-800 focus:ring-amber-500 text-white font-semibold" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                            Sign In
+                        </PrimaryButton>
+                    </div>
+                </form>
+
+                <p class="mt-8 text-center text-xs text-stone-500">
+                    © {{ new Date().getFullYear() }} WorkSphere. All rights reserved.
+                </p>
             </div>
-
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4 block">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600"
-                        >Remember me</span
-                    >
-                </label>
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                    Forgot your password?
-                </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Log in
-                </PrimaryButton>
-            </div>
-        </form>
-    </GuestLayout>
+        </div>
+    </div>
 </template>
+
+<style>
+/* Keyframes remain the same as they're animation definitions */
+@keyframes move-dash {
+    to {
+        stroke-dashoffset: 10;
+    }
+}
+
+@keyframes pulse-opacity {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+@keyframes graph-pulse {
+    0%, 100% { transform: scaleY(1); }
+    25% { transform: scaleY(0.98); }
+    50% { transform: scaleY(1.05); }
+    75% { transform: scaleY(0.97); }
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes rotate-fast {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(3600deg); }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-move-dash {
+    animation: move-dash 3s linear infinite;
+}
+
+.animate-pulse-opacity {
+    animation: pulse-opacity 4s ease-in-out infinite;
+}
+
+.animate-graph-pulse {
+    animation: graph-pulse 6s ease-in-out infinite;
+}
+
+.animate-rotate {
+    animation: rotate 60s linear infinite;
+}
+
+.animate-rotate-fast {
+    animation: rotate-fast 10s linear infinite;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.8s ease-out forwards;
+}
+</style>

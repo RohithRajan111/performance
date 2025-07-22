@@ -1,28 +1,49 @@
 <?php
+// app/Http/Controllers/TaskController.php
+
 namespace App\Http\Controllers;
 
 use App\Actions\Task\StoreTask;
 use App\Actions\Task\UpdateTaskStatus;
-use App\Http\Requests\Task\StoreTaskRequest;
-use App\Http\Requests\Task\UpdateTaskRequest;
-use App\Models\Project;
 use App\Models\Task;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Models\Project;
+use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 
 class TaskController extends Controller
 {
-    use AuthorizesRequests;
-    public function store(StoreTaskRequest $request, Project $project, StoreTask $storeTask)
+    public function store(Request $request, Project $project, StoreTask $storeTask): RedirectResponse
     {
-        $this->authorize('view', $project);
-        $storeTask->handle($project, $request->validated());
-        return Redirect::back()->with('success', 'Task created.');
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',  // Use 'name' instead of 'title'
+            'assigned_to_id' => 'required|exists:users,id',
+        ]);
+
+        $storeTask->handle($project, $validated);
+
+        return redirect()->back()->with('success', 'Task created successfully.');
     }
-    public function update(UpdateTaskRequest $request, UpdateTaskStatus $updateTaskStatus, Task $task)
+
+    public function update(Request $request, Task $task, UpdateTaskStatus $updateTaskStatus): RedirectResponse
     {
-        $this->authorize('update', $task);
-        $updateTaskStatus->handle($task, $request->validated()['status']);
-        return Redirect::back()->with('success', 'Task status updated.');
+        // Handle status updates (from dashboard buttons)
+        if ($request->has('status') && count($request->all()) == 1) {
+            $validated = $request->validate([
+                'status' => 'required|in:pending,in_progress,completed',
+            ]);
+
+            $updateTaskStatus->handle($task, $validated['status']);
+        } else {
+            // Handle full task updates
+            $validated = $request->validate([
+                'name' => 'sometimes|required|string|max:255',
+                'assigned_to_id' => 'sometimes|required|exists:users,id',
+                'status' => 'sometimes|required|in:pending,in_progress,completed',
+            ]);
+
+            $task->update($validated);
+        }
+
+        return redirect()->back()->with('success', 'Task updated successfully.');
     }
 }

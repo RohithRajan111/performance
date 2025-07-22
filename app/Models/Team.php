@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +17,7 @@ class Team extends Model
         return $this->belongsTo(User::class, 'team_lead_id');
     }
 
-    // A Team has many members (Users)
+
     public function members()
     {
         return $this->belongsToMany(User::class, 'team_user', 'team_id', 'user_id');

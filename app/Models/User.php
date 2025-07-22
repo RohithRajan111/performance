@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -6,10 +7,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Carbon\Carbon;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -20,6 +22,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'parent_id',
+        'leave_approver_id',
+        'leave_balance', // Add this when you create the migration
     ];
 
     /**
@@ -42,7 +47,8 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    // --- ADD THIS METHOD ---
+    // === LEAVE APPLICATIONS ===
+    
     /**
      * Get the leave applications for the user.
      */
@@ -50,14 +56,80 @@ class User extends Authenticatable
     {
         return $this->hasMany(LeaveApplication::class);
     }
+
+    /**
+     * Get remaining leave balance for current year
+     */
+    public function getRemainingLeaveBalance(): int
+    {
+        $currentYearUsed = $this->leaveApplications()
+            ->where('status', '!=', 'rejected')
+            ->whereYear('start_date', Carbon::now()->year)
+            ->get()
+            ->sum(function ($leave) {
+                return Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1;
+            });
+
+        return max(0, ($this->leave_balance ?? 20) - $currentYearUsed);
+    }
+
+    /**
+     * Get used leave days for current year
+     */
+    public function getUsedLeaveDays(): int
+    {
+        return $this->leaveApplications()
+            ->where('status', 'approved')
+            ->whereYear('start_date', Carbon::now()->year)
+            ->get()
+            ->sum(function ($leave) {
+                return Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1;
+            });
+    }
+
+    /**
+     * Get pending leave applications
+     */
+    public function getPendingLeaveApplications()
+    {
+        return $this->leaveApplications()->where('status', 'pending')->get();
+    }
+
+    // === TIME LOGS ===
+    
     public function timeLogs()
     {
         return $this->hasMany(TimeLog::class);
     }
+
+    /**
+     * Get total hours logged for current month
+     */
+    public function getCurrentMonthHours(): float
+    {
+        return $this->timeLogs()
+            ->whereMonth('work_date', Carbon::now()->month)
+            ->whereYear('work_date', Carbon::now()->year)
+            ->sum('hours_worked') ?? 0;
+    }
+
+    /**
+     * Get total hours logged
+     */
+    public function getTotalHours(): float
+    {
+        return $this->timeLogs()->sum('hours_worked') ?? 0;
+    }
+
+    // === TEAMS ===
+    
     public function teams()
     {
         return $this->belongsToMany(Team::class, 'team_user', 'user_id', 'team_id');
     }
+
+    // === NOTIFICATIONS ===
+    
     public function unreadNotifications()
     {
         return $this->notifications()->whereNull('read_at');
@@ -71,5 +143,190 @@ class User extends Authenticatable
     public function markAllNotificationsAsRead()
     {
         return $this->unreadNotifications()->update(['read_at' => now()]);
+    }
+
+    // === ORGANIZATIONAL HIERARCHY ===
+    
+    /**
+     * Get the parent user (manager/supervisor)
+     */
+    public function parent()
+    {
+        return $this->belongsTo(User::class, 'parent_id');
+    }
+
+    /**
+     * Get direct subordinates
+     */
+    public function children()
+    {
+        return $this->hasMany(User::class, 'parent_id');
+    }
+
+    /**
+     * Get all subordinates recursively
+     */
+    public function childrenRecursive()
+    {
+        return $this->children()->with('childrenRecursive');
+    }
+
+    /**
+     * Get all subordinates (flattened)
+     */
+    public function getAllSubordinates()
+    {
+        $subordinates = collect();
+        
+        foreach ($this->children as $child) {
+            $subordinates->push($child);
+            $subordinates = $subordinates->merge($child->getAllSubordinates());
+        }
+        
+        return $subordinates;
+    }
+
+    /**
+     * Check if user is manager of another user
+     */
+    public function isManagerOf(User $user): bool
+    {
+        return $this->getAllSubordinates()->contains('id', $user->id);
+    }
+
+    /**
+     * Get the hierarchy path (from top to current user)
+     */
+    public function getHierarchyPath()
+    {
+        $path = collect([$this]);
+        $current = $this;
+        
+        while ($current->parent) {
+            $current = $current->parent;
+            $path->prepend($current);
+        }
+        
+        return $path;
+    }
+
+    // === LEAVE APPROVAL ===
+    
+    /**
+     * Get the designated leave approver
+     */
+    public function leaveApprover()
+    {
+        return $this->belongsTo(User::class, 'leave_approver_id');
+    }
+
+    /**
+     * Get users who can approve this user's leave
+     */
+    public function getLeaveApprovers()
+    {
+        $approvers = collect();
+        
+        // Primary approver
+        if ($this->leaveApprover) {
+            $approvers->push($this->leaveApprover);
+        }
+        
+        // Fallback to parent if no specific approver
+        if ($approvers->isEmpty() && $this->parent) {
+            $approvers->push($this->parent);
+        }
+        
+        // Add users with leave management permissions
+        $leaveManagers = User::whereHas('roles', function ($query) {
+            $query->whereIn('name', ['admin', 'hr', 'project-manager']);
+        })->get();
+        
+        $approvers = $approvers->merge($leaveManagers)->unique('id');
+        
+        return $approvers;
+    }
+
+    /**
+     * Check if user can approve leave for another user
+     */
+    public function canApproveLeaveFor(User $user): bool
+    {
+        // Check if this user is the designated approver
+        if ($user->leave_approver_id === $this->id) {
+            return true;
+        }
+        
+        // Check if this user is the parent
+        if ($user->parent_id === $this->id) {
+            return true;
+        }
+        
+        // Check if user has leave management permissions
+        if ($this->hasAnyRole(['admin', 'hr', 'project-manager'])) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    // === TASKS ===
+    
+    /**
+     * Get tasks assigned to this user
+     */
+    public function assignedTasks()
+    {
+        return $this->hasMany(Task::class, 'assigned_to_id');
+    }
+
+    /**
+     * Get task completion rate
+     */
+    public function getTaskCompletionRate(): float
+    {
+        $totalTasks = $this->assignedTasks()->count();
+        
+        if ($totalTasks === 0) {
+            return 0;
+        }
+        
+        $completedTasks = $this->assignedTasks()->where('status', 'completed')->count();
+        
+        return round(($completedTasks / $totalTasks) * 100, 1);
+    }
+
+    // === PROJECTS ===
+    
+    /**
+     * Get projects where user is project manager
+     */
+    public function managedProjects()
+    {
+        return $this->hasMany(Project::class, 'project_manager_id');
+    }
+
+    // === PERFORMANCE METHODS ===
+    
+    /**
+     * Get user performance score
+     */
+    public function getPerformanceScore(): int
+    {
+        $taskScore = $this->getTaskCompletionRate();
+        $timeScore = min(100, ($this->getCurrentMonthHours() / 160) * 100);
+        $leaveScore = max(0, 100 - ($this->getUsedLeaveDays() / 20) * 100);
+        
+        return round(($taskScore + $timeScore + $leaveScore) / 3);
+    }
+
+    /**
+     * Check if user is active (has logged time recently)
+     */
+    public function isActive(): bool
+    {
+        return $this->timeLogs()
+            ->where('work_date', '>=', Carbon::now()->subDays(7))
+            ->exists();
     }
 }

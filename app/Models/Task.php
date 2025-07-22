@@ -1,4 +1,6 @@
 <?php
+// app/Models/Task.php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -8,15 +10,18 @@ class Task extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'name',
+        'project_id',
+        'assigned_to_id',
+        'status',
+    ];
 
-    // A Task belongs to one Project
     public function project()
     {
         return $this->belongsTo(Project::class);
     }
 
-    // A Task is assigned to one User
     public function assignedTo()
     {
         return $this->belongsTo(User::class, 'assigned_to_id');

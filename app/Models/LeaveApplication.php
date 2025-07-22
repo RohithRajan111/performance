@@ -15,10 +15,11 @@ class LeaveApplication extends Model
         'start_date',
         'end_date',
         'reason',
+        'leave_type',
         'status',
-        'approved_by',    // Add this
-        'approved_at',    // Add this
-        // Add any other fillable fields you have
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
@@ -27,12 +28,18 @@ class LeaveApplication extends Model
         'approved_at' => 'datetime',
     ];
 
+    // Set default values for attributes
+    protected $attributes = [
+        'leave_type' => 'annual',
+        'status' => 'pending',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function approvedByUser()
+    public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
     }

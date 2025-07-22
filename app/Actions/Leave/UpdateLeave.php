@@ -1,4 +1,5 @@
 <?php
+
 // app/Actions/Leave/UpdateLeave.php
 
 namespace App\Actions\Leave;
@@ -13,6 +14,7 @@ class UpdateLeave
 {
     public function handle(LeaveApplication $leaveApplication, string $status): void
     {
+        $leaveApplication->update(['status' => $status]);
         // Check if the columns exist before trying to update them
         $updateData = ['status' => $status];
         

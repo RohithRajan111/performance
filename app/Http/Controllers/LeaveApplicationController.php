@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use App\Models\Team;
+
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Auth;
 
