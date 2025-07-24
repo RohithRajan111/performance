@@ -25,6 +25,8 @@ class User extends Authenticatable
         'parent_id',
         'leave_approver_id',
         'leave_balance', // Add this when you create the migration
+        'designation',
+        'image'
     ];
 
     /**
@@ -60,32 +62,31 @@ class User extends Authenticatable
     /**
      * Get remaining leave balance for current year
      */
-    public function getRemainingLeaveBalance(): int
+    public function getRemainingLeaveBalance(): float
     {
-        $currentYearUsed = $this->leaveApplications()
+        $usedLeaveDays = $this->leaveApplications()
             ->where('status', '!=', 'rejected')
-            ->whereYear('start_date', Carbon::now()->year)
-            ->get()
-            ->sum(function ($leave) {
-                return Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1;
-            });
+            ->whereYear('start_date', now()->year)
+            ->sum('leave_days'); // sum fractional days directly
 
-        return max(0, ($this->leave_balance ?? 20) - $currentYearUsed);
+        $totalLeaveBalance = $this->leave_balance ?? 20; // or your default leave balance value
+
+        $remaining = max(0, $totalLeaveBalance - $usedLeaveDays);
+
+        return $remaining;
     }
 
     /**
      * Get used leave days for current year
      */
-    public function getUsedLeaveDays(): int
-    {
-        return $this->leaveApplications()
-            ->where('status', 'approved')
-            ->whereYear('start_date', Carbon::now()->year)
-            ->get()
-            ->sum(function ($leave) {
-                return Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1;
-            });
-    }
+    public function getUsedLeaveDays(): float
+{
+    return $this->leaveApplications()
+        ->where('status', 'approved')
+        ->whereYear('start_date', now()->year)
+        ->sum('leave_days'); // sum fractional days instead of date difference
+}
+
 
     /**
      * Get pending leave applications
@@ -150,10 +151,10 @@ class User extends Authenticatable
     /**
      * Get the parent user (manager/supervisor)
      */
-    public function parent()
-    {
-        return $this->belongsTo(User::class, 'parent_id');
-    }
+    // public function parent()
+    // {
+    //     return $this->belongsTo(User::class, 'parent_id');
+    // }
 
     /**
      * Get direct subordinates
@@ -328,5 +329,19 @@ class User extends Authenticatable
         return $this->timeLogs()
             ->where('work_date', '>=', Carbon::now()->subDays(7))
             ->exists();
+    }
+    public function manager()
+    {
+        // We use your existing 'parent_id' column for this relationship
+        return $this->belongsTo(User::class, 'parent_id');
+    }
+    public function calendarNotes()
+    {
+        return $this->hasMany(CalendarNote::class);
+    }
+    public function parent()
+    {
+        // A user BELONGS TO another user (their parent/manager).
+        return $this->belongsTo(User::class, 'parent_id');
     }
 }

@@ -1,38 +1,49 @@
 <?php
-// app/Notifications/LeaveRequestSubmitted.php
 
 namespace App\Notifications;
 
+use App\Models\LeaveApplication;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class LeaveRequestSubmitted extends Notification
 {
     use Queueable;
 
-    protected $leaveRequest;
-
-    public function __construct($leaveRequest)
+    /**
+     * Create a new notification instance.
+     */
+    public function __construct(public LeaveApplication $leaveApplication)
     {
-        $this->leaveRequest = $leaveRequest;
+        //
     }
 
-    public function via($notifiable)
+    /**
+     * Get the notification's delivery channels.
+     *
+     * @return array<int, string>
+     */
+    public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database']; // Save to the database
     }
 
-    public function toArray($notifiable)
+    /**
+     * Get the array representation of the notification.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
     {
         return [
-            'title' => 'New Leave Request',
-            'message' => "Leave request from {$this->leaveRequest->user->name} requires approval",
-            'type' => 'leave_request',
-            'leave_id' => $this->leaveRequest->id,
-            'user_name' => $this->leaveRequest->user->name,
-            'start_date' => $this->leaveRequest->start_date,
-            'end_date' => $this->leaveRequest->end_date,
-            'url' => route('leave.index'), // Changed from leaves.show
+            'title'     => 'New Leave Request',
+            'message'   => 'A new leave application from ' . $this->leaveApplication->user->name . ' requires your approval.',
+            'type'      => 'leave_request', // For the frontend icon
+            'leave_id'  => $this->leaveApplication->id,
+            'user_name' => $this->leaveApplication->user->name,
+            'url'       => route('leave.index'), // Link to the leave management page for admins/hr
         ];
     }
 }

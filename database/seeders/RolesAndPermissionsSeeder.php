@@ -7,39 +7,35 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Reset cached roles/permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        // Reset cached roles and permissions
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Create All Permissions
-        Permission::create(['name' => 'log working hours']);
-        Permission::create(['name' => 'apply for leave']);
-        Permission::create(['name' => 'assign tasks']);
-        Permission::create(['name' => 'view team progress']);
-        Permission::create(['name' => 'assign projects']);
-        Permission::create(['name' => 'view all projects progress']);
-        Permission::create(['name' => 'view all working hours']);
-        Permission::create(['name' => 'manage leave applications']);
-        Permission::create(['name' => 'manage employees']);
-        Permission::create(['name' => 'manage roles']);
-        Permission::create(['name' => 'view leaves']); // <-- ADD THIS PERMISSION
+        // Create Permissions
+        $permissions = [
+            'log working hours', 'apply for leave', 'assign tasks', 'view team progress',
+            'assign projects', 'view all projects progress', 'view all working hours',
+            'manage leave applications', 'manage employees', 'manage roles', 'view leaves'
+        ];
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
+        }
 
-        // Employee Role
-        $employeeRole = Role::create(['name' => 'employee']);
+        // Create Roles and Assign Permissions
+        $employeeRole = Role::firstOrCreate(['name' => 'employee']);
         $employeeRole->givePermissionTo(['log working hours', 'apply for leave']);
 
         $teamLeadRole = Role::firstOrCreate(['name' => 'team-lead']);
         $teamLeadRole->givePermissionTo([
-            'assign tasks',
-            'view team progress',
-            'log working hours',
-            'apply for leave',
-            'view leaves', // <-- GIVE PERMISSION TO TEAM LEADS
+            'assign tasks', 'view team progress', 'log working hours', 'apply for leave', 'view leaves',
         ]);
+        // Safeguard: Ensure team-lead cannot manage leave applications
+        $teamLeadRole->revokePermissionTo('manage leave applications');
 
         $pmRole = Role::firstOrCreate(['name' => 'project-manager']);
         $pmRole->givePermissionTo(['assign projects', 'view all projects progress']);
@@ -47,28 +43,28 @@ class RolesAndPermissionsSeeder extends Seeder
         $hrRole = Role::firstOrCreate(['name' => 'hr']);
         $hrRole->givePermissionTo([
             'view all working hours', 'manage leave applications', 'manage employees',
-            'manage roles', 'apply for leave',
-            'view leaves', // <-- GIVE PERMISSION TO HR
+            'manage roles', 'apply for leave', 'view leaves',
         ]);
 
-        // Admin Role
-        $adminRole = Role::create(['name' => 'admin']);
-        $adminRole->givePermissionTo(Permission::all()); // Admin automatically gets 'view leaves'
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $adminRole->givePermissionTo(Permission::all());
 
-        // Create users (order matters due to parent_id setup)
+        // Create Users with Designations (Order matters for parent_id)
 
         // 1. Admin (root)
         $adminUser = User::factory()->create([
             'name' => 'Admin User',
-            'email' => 'admin@example.com'
+            'email' => 'admin@example.com',
+            'designation' => 'System Administrator',
         ]);
         $adminUser->assignRole($adminRole);
 
         // 2. HR - reports to Admin
         $hrUser = User::factory()->create([
-            'name'      => 'HR User',
+            'name'      => 'HR Manager',
             'email'     => 'hr@example.com',
-            'parent_id' => $adminUser->id
+            'designation' => 'Human Resources',
+            'parent_id' => $adminUser->id,
         ]);
         $hrUser->assignRole($hrRole);
 
@@ -76,7 +72,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $pmUser = User::factory()->create([
             'name'      => 'PM User',
             'email'     => 'pm@example.com',
-            'parent_id' => $adminUser->id
+            'designation' => 'Project Manager',
+            'parent_id' => $adminUser->id,
         ]);
         $pmUser->assignRole($pmRole);
 
@@ -84,7 +81,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $leadUser = User::factory()->create([
             'name'      => 'Team Lead User',
             'email'     => 'lead@example.com',
-            'parent_id' => $pmUser->id
+            'designation' => 'Lead Developer',
+            'parent_id' => $pmUser->id,
         ]);
         $leadUser->assignRole($teamLeadRole);
 
@@ -92,15 +90,26 @@ class RolesAndPermissionsSeeder extends Seeder
         $employeeUser = User::factory()->create([
             'name'      => 'Employee User',
             'email'     => 'employee@example.com',
-            'parent_id' => $leadUser->id
+            'designation' => 'Software Engineer',
+            'parent_id' => $leadUser->id,
         ]);
         $employeeUser->assignRole($employeeRole);
 
-        // 6. Create Team and assign members
+        // Create another employee for the team
+        $employeeUser2 = User::factory()->create([
+            'name'      => 'Jane Doe',
+            'email'     => 'jane@example.com',
+            'designation' => 'Frontend Developer',
+            'parent_id' => $leadUser->id,
+        ]);
+        $employeeUser2->assignRole($employeeRole);
+
+
+        // Create Team and assign members
         $devTeam = Team::firstOrCreate([
             'name' => 'Core Development Team',
             'team_lead_id' => $leadUser->id
         ]);
-        $devTeam->members()->syncWithoutDetaching([$leadUser->id, $employeeUser->id]);
+        $devTeam->members()->sync([$leadUser->id, $employeeUser->id, $employeeUser2->id]);
     }
 }

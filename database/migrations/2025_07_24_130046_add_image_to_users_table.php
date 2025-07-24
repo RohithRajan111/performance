@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('leave_applications', function (Blueprint $table) {
-            $table->decimal('leave_days', 5, 2)->nullable()->after('leave_type');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('image')->nullable()->after('email');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('leave_applications', function (Blueprint $table) {
-            $table->dropColumn('leave_days');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('image');
         });
     }
 };

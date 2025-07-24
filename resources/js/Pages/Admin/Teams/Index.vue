@@ -1,13 +1,8 @@
 <script setup>
-import { ref } from 'vue'; // Import ref for modal state
+import { ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue'; // Good for Cancel buttons
-import DangerButton from '@/Components/DangerButton.vue'; // Good for Delete buttons
-import TextInput from '@/Components/TextInput.vue';
-import Modal from '@/Components/Modal.vue'; // A reusable modal is great here
+import Modal from '@/Components/Modal.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 
 // The props are passed from our TeamController@index method
@@ -15,6 +10,8 @@ const props = defineProps({
     teams: Array,
     potentialLeads: Array,
 });
+
+// --- All of your existing script logic remains the same. It's perfect. ---
 
 // --- Create Form ---
 const createForm = useForm({
@@ -36,21 +33,18 @@ const editForm = useForm({
     team_lead_id: '',
 });
 
-// Function to open the edit modal and populate it with team data
 const openEditModal = (team) => {
     editingTeam.value = team;
     editForm.name = team.name;
-    editForm.team_lead_id = team.team_lead.id; // Correctly get the lead's ID
+    editForm.team_lead_id = team.team_lead.id;
 };
 
-// Function to close the modal
 const closeModal = () => {
     editingTeam.value = null;
     editForm.reset();
     editForm.clearErrors();
 };
 
-// Function to submit the update request
 const submitUpdate = () => {
     editForm.put(route('teams.update', editingTeam.value.id), {
         onSuccess: () => closeModal(),
@@ -58,7 +52,6 @@ const submitUpdate = () => {
     });
 };
 
-// Function to handle team deletion
 const deleteTeam = (teamId) => {
     if (confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
         router.delete(route('teams.destroy', teamId), {
@@ -73,98 +66,124 @@ const deleteTeam = (teamId) => {
     <Head title="Manage Teams" />
 
     <AuthenticatedLayout>
-        <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Manage Teams</h2>
-        </template>
+        <div class="p-4 sm:p-6 lg:p-8 font-sans">
+            <div class="max-w-7xl mx-auto space-y-6">
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 grid md:grid-cols-2 gap-6">
-
-                <!-- Left Column: Form to Add New Team -->
-                <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                    <section>
-                        <header>
-                            <h2 class="text-lg font-medium text-gray-900">Create New Team</h2>
-                            <p class="mt-1 text-sm text-gray-600">
-                                Create a new team and assign an existing user with the 'Team Lead' role.
-                            </p>
-                        </header>
-
-                        <form @submit.prevent="submitCreate" class="mt-6 space-y-6">
-                            <div>
-                                <InputLabel for="name" value="Team Name" />
-                                <TextInput id="name" type="text" class="mt-1 block w-full" v-model="createForm.name" required />
-                                <InputError class="mt-2" :message="createForm.errors.name" />
-                            </div>
-
-                            <div>
-                                <InputLabel for="team_lead_id" value="Assign Team Lead" />
-                                <select id="team_lead_id" v-model="createForm.team_lead_id" required class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                                    <option value="" disabled>-- Select a Team Lead --</option>
-                                    <option v-for="lead in potentialLeads" :key="lead.id" :value="lead.id">
-                                        {{ lead.name }}
-                                    </option>
-                                </select>
-                                <InputError class="mt-2" :message="createForm.errors.team_lead_id" />
-                            </div>
-
-                            <div class="flex items-center gap-4">
-                                <PrimaryButton :disabled="createForm.processing">Create Team</PrimaryButton>
-                            </div>
-                        </form>
-                    </section>
+                <!-- Page Header -->
+                <div class="flex items-center justify-between">
+                    <h1 class="text-3xl font-bold text-slate-900">Manage Teams</h1>
                 </div>
 
-                <!-- Right Column: List of Existing Teams -->
-                <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
-                    <section>
-                        <header>
-                            <h2 class="text-lg font-medium text-gray-900">Existing Teams</h2>
-                        </header>
-                        <div class="mt-4 space-y-4">
-                            <div v-if="!teams.length" class="text-center text-gray-500 py-4">No teams have been created yet.</div>
-                            <!-- Updated Loop with Edit/Delete Buttons -->
-                            <div v-for="team in props.teams" :key="team.id" class="px-4 py-3 bg-gray-50 rounded-md border flex justify-between items-center">
-                                <div>
-                                    <h3 class="font-semibold">{{ team.name }}</h3>
-                                    <p class="text-sm text-gray-600">Lead: <span class="font-medium">{{ team.team_lead.name }}</span></p>
-                                    <p class="text-sm text-gray-600">Members: <span class="font-medium">{{ team.members_count }}</span></p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                     <SecondaryButton @click="openEditModal(team)">
-                                        Edit
-                                    </SecondaryButton>
-                                    <DangerButton @click="deleteTeam(team.id)">
-                                        Delete
-                                    </DangerButton>
-                                </div>
+                <!-- Card 1: Form to Add New Team -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <header>
+                        <h2 class="text-lg font-semibold text-slate-900">Create New Team</h2>
+                        <p class="mt-1 text-sm text-slate-600">
+                            Create a new team and assign an existing user with the 'Team Lead' role.
+                        </p>
+                    </header>
+
+                    <form @submit.prevent="submitCreate" class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        <!-- Team Name Input -->
+                        <div class="sm:col-span-1">
+                            <label for="name" class="block text-sm font-medium text-slate-700">Team Name</label>
+                            <input v-model="createForm.name" id="name" type="text" required
+                                   class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                            <InputError class="mt-2" :message="createForm.errors.name" />
+                        </div>
+
+                        <!-- Assign Team Lead Select -->
+                        <div class="sm:col-span-1">
+                            <label for="team_lead_id" class="block text-sm font-medium text-slate-700">Assign Team Lead</label>
+                            <select v-model="createForm.team_lead_id" id="team_lead_id" required
+                                    class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="" disabled>-- Select a Team Lead --</option>
+                                <option v-for="lead in potentialLeads" :key="lead.id" :value="lead.id">
+                                    {{ lead.name }}
+                                </option>
+                            </select>
+                            <InputError class="mt-2" :message="createForm.errors.team_lead_id" />
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="sm:col-span-2 flex items-center justify-end">
+                            <button type="submit" :disabled="createForm.processing"
+                                    class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50">
+                                Create Team
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Card 2: List of Existing Teams -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <header>
+                        <h2 class="text-lg font-semibold text-slate-900">Existing Teams</h2>
+                    </header>
+                    <div class="mt-4 flow-root">
+                        <div class="-mx-6 -my-2 overflow-x-auto">
+                            <div class="inline-block min-w-full py-2 align-middle">
+                                <table class="min-w-full divide-y divide-slate-200">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase">Team Name</th>
+                                            <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase">Team Lead</th>
+                                            <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase">Members</th>
+                                            <th scope="col" class="relative py-3.5 px-6">
+                                                <span class="sr-only">Actions</span>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr v-if="!teams.length">
+                                            <td colspan="4" class="text-center text-slate-500 py-8">No teams have been created yet.</td>
+                                        </tr>
+                                        <tr v-for="team in props.teams" :key="team.id">
+                                            <td class="whitespace-nowrap py-4 px-6 text-sm font-medium text-slate-900">{{ team.name }}</td>
+                                            <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600">{{ team.team_lead.name }}</td>
+                                            <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600">{{ team.members_count }}</td>
+                                            <td class="relative whitespace-nowrap py-4 px-6 text-right text-sm font-medium">
+                                                <div class="flex items-center justify-end space-x-4">
+                                                    <button @click="openEditModal(team)" class="text-indigo-600 hover:text-indigo-900">
+                                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z"></path></svg>
+                                                    </button>
+                                                    <button @click="deleteTeam(team.id)" class="text-red-600 hover:text-red-900">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                    </section>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Edit Team Modal -->
+        <!-- Edit Team Modal (Restyled) -->
         <Modal :show="editingTeam !== null" @close="closeModal">
             <div class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">
+                <h2 class="text-lg font-bold text-slate-900">
                     Edit Team: {{ editingTeam?.name }}
                 </h2>
-                <p class="mt-1 text-sm text-gray-600">
+                <p class="mt-1 text-sm text-slate-600">
                     Update the team's name or assign a different team lead.
                 </p>
 
                 <form @submit.prevent="submitUpdate" class="mt-6 space-y-6">
                     <div>
-                        <InputLabel for="edit_name" value="Team Name" />
-                        <TextInput id="edit_name" type="text" class="mt-1 block w-full" v-model="editForm.name" required />
+                        <label for="edit_name" class="block text-sm font-medium text-slate-700">Team Name</label>
+                        <input v-model="editForm.name" id="edit_name" type="text" required
+                               class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                         <InputError class="mt-2" :message="editForm.errors.name" />
                     </div>
 
                     <div>
-                        <InputLabel for="edit_team_lead_id" value="Assign Team Lead" />
-                        <select id="edit_team_lead_id" v-model="editForm.team_lead_id" required class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                        <label for="edit_team_lead_id" class="block text-sm font-medium text-slate-700">Assign Team Lead</label>
+                        <select v-model="editForm.team_lead_id" id="edit_team_lead_id" required
+                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             <option v-for="lead in potentialLeads" :key="lead.id" :value="lead.id">
                                 {{ lead.name }}
                             </option>
@@ -172,9 +191,15 @@ const deleteTeam = (teamId) => {
                         <InputError class="mt-2" :message="editForm.errors.team_lead_id" />
                     </div>
 
-                    <div class="mt-6 flex justify-end gap-4">
-                        <SecondaryButton @click="closeModal"> Cancel </SecondaryButton>
-                        <PrimaryButton :disabled="editForm.processing"> Save Changes </PrimaryButton>
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" @click="closeModal"
+                                class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="editForm.processing"
+                                class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50">
+                            Save Changes
+                        </button>
                     </div>
                 </form>
             </div>

@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('leave_applications', function (Blueprint $table) {
-            $table->decimal('leave_days', 5, 2)->nullable()->after('leave_type');
-        });
+        Schema::create('calendar_notes', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('user_id')->constrained()->onDelete('cascade');
+        $table->date('date');
+        $table->text('note');
+        $table->timestamps();
+    });
     }
 
     /**
@@ -21,8 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('leave_applications', function (Blueprint $table) {
-            $table->dropColumn('leave_days');
-        });
+        Schema::dropIfExists('calendar_notes');
     }
 };

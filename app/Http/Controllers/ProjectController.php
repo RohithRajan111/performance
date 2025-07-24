@@ -15,22 +15,60 @@ class ProjectController extends Controller
 {
     use AuthorizesRequests;
 
-    public function create(CreateProject $createProject)
+    /**
+     * Display a listing of projects and provide data for the creation modal.
+     */
+    public function index(CreateProject $createProject)
     {
-        return Inertia::render('Projects/Create', $createProject->handle());
+        $user = auth()->user();
+        
+        if ($user->hasRole('admin')) {
+            $projects = Project::with(['projectManager', 'team', 'tasks'])->latest()->get();
+        } elseif ($user->hasRole('project-manager')) {
+            $projects = Project::where('project_manager_id', $user->id)
+                ->with(['projectManager', 'team', 'tasks'])
+                ->latest()
+                ->get();
+        } else {
+            $teamIds = $user->teams->pluck('id');
+            $projects = Project::whereIn('team_id', $teamIds)
+                ->with(['projectManager', 'team', 'tasks'])
+                ->latest()
+                ->get();
+        }
+        
+        // Use your existing action to get the data needed for the "Create" modal
+        $creationData = $createProject->handle();
+
+        return Inertia::render('Projects/Index', [
+            'projects' => $projects->map(fn($project) => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'team' => $project->team,
+                'project_manager' => $project->projectManager,
+                'tasks_count' => $project->tasks->count(),
+                'end_date' => $project->end_date,
+            ]),
+            'teams' => $creationData['teams'],
+        ]);
     }
 
+    /**
+     * Store a newly created project. This uses your existing action.
+     */
     public function store(StoreProjectRequest $request, StoreProject $storeProject)
     {
         $storeProject->handle($request->validated());
 
-        return Redirect::route('dashboard')->with('success', 'Project created.');
+        return Redirect::route('projects.index')->with('success', 'Project created successfully.');
     }
 
+    /**
+     * Display the specified project. This remains unchanged.
+     */
     public function show(Project $project, ShowProject $showProject)
     {
         $data = $showProject->handle($project);
-
         return Inertia::render('Projects/Show', $data);
     }
 }

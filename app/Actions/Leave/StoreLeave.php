@@ -1,67 +1,84 @@
 <?php
-// app/Actions/Leave/StoreLeave.php
 
 namespace App\Actions\Leave;
 
 use App\Models\LeaveApplication;
-use Carbon\Carbon;
 use App\Notifications\LeaveRequestSubmitted;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class StoreLeave
 {
     public function handle(array $data): LeaveApplication
     {
+        // Remember to REMOVE the dd($data) after you've seen the output!
+
         $user = Auth::user();
 
-        // Calculate requested days
         $start = Carbon::parse($data['start_date']);
         $end = Carbon::parse($data['end_date']);
-        $requestedDays = $start->diffInDays($end) + 1;
+        $startSession = $data['start_half_session'] ?? null;
+        $endSession = $data['end_half_session'] ?? null;
 
-        // Validate date range
         if ($start->gt($end)) {
-            throw new \Exception('Start date must be before or equal to end date.');
+            throw ValidationException::withMessages(['start_date' => ['Start date must be before or equal to the end date.']]);
         }
 
-        if ($start->lt(Carbon::today())) {
-            throw new \Exception('Cannot apply for leave in the past.');
+        // =================================================================
+        // --- FINAL, EXPLICIT & BULLETPROOF LEAVE DAYS CALCULATION ---
+        // =================================================================
+        $leaveDays = 0;
+        $isSingleDay = $start->isSameDay($end);
+
+        if ($isSingleDay) {
+            $isFullDay = ($startSession === 'morning' && $endSession === 'afternoon');
+            $isHalfDay =
+                ($startSession === 'morning' && empty($endSession)) ||
+                (empty($startSession) && $endSession === 'afternoon') ||
+                ($startSession === 'morning' && $endSession === 'morning') || // Cover all edge cases
+                ($startSession === 'afternoon' && $endSession === 'afternoon');
+
+            if ($isFullDay) {
+                // Case 1: Explicitly a full day (e.g., Morning to Afternoon)
+                $leaveDays = 1.0;
+            } elseif ($isHalfDay) {
+                // Case 2: Explicitly a half day (e.g., only Morning is selected)
+                $leaveDays = 0.5;
+            } else {
+                // Case 3: Default to a full day if no sessions or an invalid combo is provided.
+                $leaveDays = 1.0;
+            }
+        } else {
+            // Multi-day logic (this is generally correct)
+            $firstDayValue = ($startSession === 'afternoon') ? 0.5 : 1.0;
+            $lastDayValue = ($endSession === 'morning') ? 0.5 : 1.0;
+            $daysInBetween = max(0, $start->diffInDays($end) - 1);
+            $leaveDays = $firstDayValue + $lastDayValue + $daysInBetween;
         }
 
-        // Check leave balance using model method
-        $remainingBalance = $user->getRemainingLeaveBalance();
-        if ($remainingBalance < $requestedDays) {
-            throw new \Exception("Insufficient leave balance. You have {$remainingBalance} days remaining, but requested {$requestedDays} days.");
+
+        // ... Your other validation and checks ...
+        if ($leaveDays > $user->getRemainingLeaveBalance()) {
+            throw ValidationException::withMessages([
+                'leave_days' => ["You do not have enough leave balance. Remaining: {$user->getRemainingLeaveBalance()} days."],
+            ]);
         }
 
-        // Check for overlapping leave applications
-        $overlapping = $user->leaveApplications()
-            ->where('status', '!=', 'rejected')
-            ->where(function ($query) use ($start, $end) {
-                $query->whereBetween('start_date', [$start, $end])
-                      ->orWhereBetween('end_date', [$start, $end])
-                      ->orWhere(function ($q) use ($start, $end) {
-                          $q->where('start_date', '<=', $start)
-                            ->where('end_date', '>=', $end);
-                      });
-            })
-            ->exists();
 
-        if ($overlapping) {
-            throw new \Exception('You already have a leave application for this date range.');
-        }
-
-        // Create the leave application with proper leave_type handling
         $leaveApplication = LeaveApplication::create([
             'user_id' => $user->id,
             'start_date' => $start,
             'end_date' => $end,
+            'start_half_session' => $startSession,
+            'end_half_session' => $endSession,
             'reason' => $data['reason'],
-            'leave_type' => $data['leave_type'] ?? 'annual', // Provide default value
+            'leave_type' => $data['leave_type'],
+            'leave_days' => $leaveDays,
+            'salary_deduction_days' => 0,
             'status' => 'pending',
         ]);
 
-        // Send notifications to approvers
         $this->sendNotifications($leaveApplication);
 
         return $leaveApplication;
@@ -69,29 +86,16 @@ class StoreLeave
 
     private function sendNotifications(LeaveApplication $leaveApplication): void
     {
+        // This method is fine
         try {
             $approvers = $leaveApplication->user->getLeaveApprovers();
-            
             if ($approvers->count() > 0) {
                 foreach ($approvers as $approver) {
                     $approver->notify(new LeaveRequestSubmitted($leaveApplication));
                 }
-                
-                \Log::info("Leave request notifications sent", [
-                    'leave_id' => $leaveApplication->id,
-                    'approvers_count' => $approvers->count()
-                ]);
-            } else {
-                \Log::warning('No approvers found for leave request', [
-                    'leave_id' => $leaveApplication->id
-                ]);
             }
-            
         } catch (\Exception $e) {
-            \Log::error('Failed to send leave request notifications', [
-                'error' => $e->getMessage(),
-                'leave_id' => $leaveApplication->id
-            ]);
+            \Log::error('Failed to send leave request notifications', ['error' => $e->getMessage(), 'leave_id' => $leaveApplication->id]);
         }
     }
 }

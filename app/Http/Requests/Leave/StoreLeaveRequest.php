@@ -5,6 +5,7 @@ namespace App\Http\Requests\Leave;
 use App\Models\LeaveApplication;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
+use Carbon\Carbon;
 
 class StoreLeaveRequest extends FormRequest
 {
@@ -18,22 +19,27 @@ class StoreLeaveRequest extends FormRequest
         return [
             'start_date' => ['required', 'date', 'after_or_equal:today', function ($attribute, $value, $fail) {
                 $leaveType = $this->input('leave_type');
-                $startDate = \Carbon\Carbon::parse($value);
-                $today = \Carbon\Carbon::today();
+                $startDate = Carbon::parse($value);
+                $today = Carbon::today();
 
-                if ($leaveType === 'casual') {
-                    if ($startDate->lt($today->addDays(7))) {
-                        $fail('Casual leave must be applied at least 7 days in advance.');
+                // Adjust the leave types and advance days as per your business logic
+                if ($leaveType === 'annual') {
+                    if ($startDate->lt($today->copy()->addDays(7))) {
+                        $fail('Annual leave must be applied at least 7 days in advance.');
                     }
-                } elseif ($leaveType === 'paid') {
-                    if ($startDate->lt($today->addDays(1))) {
-                        $fail('Paid leave must be applied at least 3 days in advance.');
+                } elseif ($leaveType === 'personal') {
+                    if ($startDate->lt($today->copy()->addDays(3))) {
+                        $fail('Personal leave must be applied at least 3 days in advance.');
                     }
                 }
+                // Add other leave type advance checks here if needed
             }],
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'reason' => 'required|string|min:10',
-            'leave_type' => ['required', 'in:casual,sick,paid'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'reason' => ['required', 'string', 'min:10'],
+            'leave_type' => ['required', 'string', 'in:annual,sick,personal,emergency,maternity,paternity'],
+            // New session fields instead of old day_type and half_session
+            'start_half_session' => ['nullable', 'in:morning,afternoon'],
+            'end_half_session' => ['nullable', 'in:morning,afternoon'],
         ];
     }
 

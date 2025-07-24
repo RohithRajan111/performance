@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/NotificationController.php
 
 namespace App\Http\Controllers;
 
@@ -22,23 +21,23 @@ class NotificationController extends Controller
 
     public function markAsRead($id)
     {
-        auth()->user()->markNotificationAsRead($id);
-        
+        $notification = auth()->user()->notifications()->findOrFail($id);
+        if ($notification->read_at === null) {
+            $notification->markAsRead();
+        }
         return response()->json(['success' => true]);
     }
 
     public function markAllAsRead()
     {
-        auth()->user()->markAllNotificationsAsRead();
-        
+        auth()->user()->unreadNotifications->markAsRead();
         return response()->json(['success' => true]);
     }
 
     public function getUnreadCount()
     {
-        return response()->json([
-            'count' => auth()->user()->unreadNotifications()->count()
-        ]);
+        $count = auth()->user()->unreadNotifications()->count();
+        return response()->json(['count' => $count]);
     }
 
     public function getRecent()
@@ -46,7 +45,7 @@ class NotificationController extends Controller
         $notifications = auth()->user()
             ->notifications()
             ->orderBy('created_at', 'desc')
-            ->limit(5)
+            ->limit(10)
             ->get();
 
         return response()->json(['data' => $notifications]);

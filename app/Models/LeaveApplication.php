@@ -1,4 +1,5 @@
 <?php
+
 // app/Models/LeaveApplication.php
 
 namespace App\Models;
@@ -17,6 +18,10 @@ class LeaveApplication extends Model
         'reason',
         'leave_type',
         'status',
+        'day_type',
+        'start_half_session',
+        'end_half_session',
+        'leave_days',
         'approved_by',
         'approved_at',
         'rejection_reason',
@@ -26,6 +31,7 @@ class LeaveApplication extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'approved_at' => 'datetime',
+        'leave_days' => 'float',
     ];
 
     // Set default values for attributes
