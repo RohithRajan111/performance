@@ -11,6 +11,8 @@ class StoreProjectRequest extends FormRequest
      */
     public function authorize(): bool
     {
+        // You can add logic here later if only certain roles can create projects.
+        // For now, `true` is fine.
         return true;
     }
 
@@ -27,6 +29,7 @@ class StoreProjectRequest extends FormRequest
             'team_id' => 'required|exists:teams,id',
             'end_date' => 'required|date|after_or_equal:today',
             'total_hours_required' => 'required|integer|min:1',
+
         ];
     }
 }

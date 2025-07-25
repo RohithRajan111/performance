@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/TaskController.php
 
 namespace App\Http\Controllers;
 
@@ -15,7 +14,7 @@ class TaskController extends Controller
     public function store(Request $request, Project $project, StoreTask $storeTask): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',  // Use 'name' instead of 'title'
+            'name' => 'required|string|max:255',
             'assigned_to_id' => 'required|exists:users,id',
         ]);
 
@@ -24,25 +23,38 @@ class TaskController extends Controller
         return redirect()->back()->with('success', 'Task created successfully.');
     }
 
-    public function update(Request $request, Task $task, UpdateTaskStatus $updateTaskStatus): RedirectResponse
+    /**
+     * --- THIS IS THE NEW, CORRECT METHOD ---
+     *
+     * This method is called directly by the route `tasks.updateStatus`.
+     * It's specifically for handling the "Start" and "Done" buttons.
+     */
+    public function updateStatus(Request $request, Task $task, UpdateTaskStatus $updateTaskStatus): RedirectResponse
     {
-        // Handle status updates (from dashboard buttons)
-        if ($request->has('status') && count($request->all()) == 1) {
-            $validated = $request->validate([
-                'status' => 'required|in:pending,in_progress,completed',
-            ]);
+        $validated = $request->validate([
+            'status' => 'required|in:todo,in_progress,completed', // Use your actual status names
+        ]);
 
-            $updateTaskStatus->handle($task, $validated['status']);
-        } else {
-            // Handle full task updates
-            $validated = $request->validate([
-                'name' => 'sometimes|required|string|max:255',
-                'assigned_to_id' => 'sometimes|required|exists:users,id',
-                'status' => 'sometimes|required|in:pending,in_progress,completed',
-            ]);
+        $updateTaskStatus->handle($task, $validated['status']);
 
-            $task->update($validated);
-        }
+        return redirect()->back()->with('success', 'Task status updated.');
+    }
+
+
+    /**
+     * This method is now only for handling full task updates (e.g., from an "Edit Task" form).
+     * The status update logic has been moved to its own dedicated method.
+     */
+    public function update(Request $request, Task $task): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'assigned_to_id' => 'sometimes|required|exists:users,id',
+            'status' => 'sometimes|required|in:todo,in_progress,completed',
+            'due_date' => 'sometimes|required|date',
+        ]);
+
+        $task->update($validated);
 
         return redirect()->back()->with('success', 'Task updated successfully.');
     }

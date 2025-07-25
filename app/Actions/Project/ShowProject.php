@@ -4,7 +4,7 @@ namespace App\Actions\Project;
 
 use App\Models\Project;
 
-use App\Models\User; 
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Auth\Access\AuthorizationException;
 
@@ -25,7 +25,7 @@ class ShowProject
         if (Auth::user()->can('assign tasks') && $project->team) {
             $teamMembers = $project->team->members
                 ->push($project->team->teamLead)
-                ->filter() 
+                ->filter()
                 ->unique('id');
         }
 

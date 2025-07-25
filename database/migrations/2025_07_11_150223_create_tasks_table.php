@@ -19,7 +19,8 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained()->onDelete('cascade'); // Links to projects table
             $table->foreignId('assigned_to_id')->constrained('users'); // Links to users table
 
-            $table->string('status')->default('todo'); // todo, in-progress, done
+            $table->string('status')->default('todo');
+             $table->date('due_date')->nullable();// todo, in-progress, done
             $table->timestamps();
         });
     }

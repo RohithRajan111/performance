@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+// --- ADD THIS IMPORT ---
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Project extends Model
 {
@@ -15,7 +17,10 @@ class Project extends Model
     // Automatically include these calculated values when sending the model to the frontend
     protected $appends = ['task_progress', 'hours_progress'];
 
+    // ==================
     // Relationships
+    // ==================
+
     public function projectManager()
     {
         return $this->belongsTo(User::class, 'project_manager_id');
@@ -35,6 +40,24 @@ class Project extends Model
     {
         return $this->hasMany(TimeLog::class);
     }
+
+    /**
+     * --- ADD THIS RELATIONSHIP METHOD ---
+     *
+     * The users that belong to the project as members.
+     * This defines the many-to-many relationship required by the `whereHas('members', ...)` query.
+     */
+    public function members(): BelongsToMany
+    {
+        // This tells Laravel that a Project can belong to many Users,
+        // and it uses the 'project_user' table to link them.
+        return $this->belongsToMany(User::class, 'project_user');
+    }
+
+
+    // ==================
+    // Accessors
+    // ==================
 
     // Accessor for Task-based progress
     protected function taskProgress(): Attribute

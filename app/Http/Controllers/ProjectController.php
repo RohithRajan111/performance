@@ -7,9 +7,12 @@ use App\Actions\Project\ShowProject;
 use App\Actions\Project\StoreProject;
 use App\Http\Requests\Project\StoreProjectRequest;
 use App\Models\Project;
+use App\Models\User; // <-- Import User model
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Auth; // <-- Import Auth facade
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class ProjectController extends Controller
 {
@@ -18,26 +21,24 @@ class ProjectController extends Controller
     /**
      * Display a listing of projects and provide data for the creation modal.
      */
-    public function index(CreateProject $createProject)
+    public function index(CreateProject $createProject): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
         
-        if ($user->hasRole('admin')) {
-            $projects = Project::with(['projectManager', 'team', 'tasks'])->latest()->get();
-        } elseif ($user->hasRole('project-manager')) {
-            $projects = Project::where('project_manager_id', $user->id)
-                ->with(['projectManager', 'team', 'tasks'])
-                ->latest()
-                ->get();
-        } else {
+        $query = Project::with(['projectManager', 'team', 'tasks'])->latest();
+
+        // Role-based scoping for viewing projects
+        if ($user->hasRole('project-manager')) {
+            $query->where('project_manager_id', $user->id);
+        } elseif (!($user->hasRole('admin') || $user->hasRole('hr'))) { // Assuming HR can also see all
+            // For team leads and employees, scope to their teams
             $teamIds = $user->teams->pluck('id');
-            $projects = Project::whereIn('team_id', $teamIds)
-                ->with(['projectManager', 'team', 'tasks'])
-                ->latest()
-                ->get();
+            $query->whereIn('team_id', $teamIds);
         }
         
-        // Use your existing action to get the data needed for the "Create" modal
+        $projects = $query->get();
+        
+        // This action now returns an array with both 'teams' and 'projectManagers'
         $creationData = $createProject->handle();
 
         return Inertia::render('Projects/Index', [
@@ -49,26 +50,27 @@ class ProjectController extends Controller
                 'tasks_count' => $project->tasks->count(),
                 'end_date' => $project->end_date,
             ]),
+            // The controller now correctly receives both keys from the action.
             'teams' => $creationData['teams'],
+            'projectManagers' => $creationData['projectManagers'],
         ]);
     }
 
     /**
-     * Store a newly created project. This uses your existing action.
+     * Store a newly created project.
      */
     public function store(StoreProjectRequest $request, StoreProject $storeProject)
     {
         $storeProject->handle($request->validated());
-
         return Redirect::route('projects.index')->with('success', 'Project created successfully.');
     }
 
     /**
-     * Display the specified project. This remains unchanged.
+     * Display the specified project with role-aware assignable users.
      */
-    public function show(Project $project, ShowProject $showProject)
+    public function show(Project $project, ShowProject $showProject): Response
     {
-        $data = $showProject->handle($project);
-        return Inertia::render('Projects/Show', $data);
+        $projectData = $showProject->handle($project);
+        return Inertia::render('Projects/Show', $projectData);
     }
 }

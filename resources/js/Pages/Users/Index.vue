@@ -6,6 +6,8 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import { debounce } from 'lodash';
 
+// =========== PROPS ===========
+// Data passed from the UserController@index method in Laravel
 const props = defineProps({
     users: Object, // Laravel paginated object
     roles: Array,
@@ -15,12 +17,16 @@ const props = defineProps({
     filters: Object,
 });
 
+// =========== STATE MANAGEMENT ===========
 const isModalVisible = ref(false);
-const modalMode = ref('create'); // 'create' or 'edit'
-const editingUser = ref(null);
+const modalMode = ref('create'); // Can be 'create' or 'edit'
+const editingUser = ref(null); // Stores the user object being edited
+const search = ref(props.filters?.search || ''); // Search input state
 
+// =========== FORM HANDLING ===========
+// A single reactive form for both creating and editing users
 const form = useForm({
-    _method: 'put', // Required for form submissions with files on 'edit'
+    _method: null, // Will be 'post' for create, 'put' for edit (for method spoofing)
     name: '',
     email: '',
     password: '',
@@ -28,48 +34,51 @@ const form = useForm({
     role: '',
     team_id: '',
     parent_id: '',
-    image: null, // Avatar file
-    imagePreview: null, // Preview URL
+    image: null, // Holds the file object for new avatar uploads
+    imagePreview: null, // Holds the URL for the image preview
 });
 
-// Watch for role changes to automatically set the manager
-watch(() => form.role, (newRole) => {
+
+// =========== DYNAMIC FORM LOGIC ===========
+// Watch for role changes to automatically set the manager or clear dependencies
+watch(() => form.role, (newRole, oldRole) => {
+    // Auto-assign the admin as the manager for Project Managers
     if (newRole === 'project-manager' && props.theAdmin) {
         form.parent_id = props.theAdmin.id;
-    } else {
-        // Only clear parent_id if the role has actually changed from what it was
-        if (editingUser.value && editingUser.value.roles[0]?.name === newRole) {
-           return; // Do nothing if role is the same as the original
-        }
+    }
+    // If the role is changed *from* something else, clear the old manager/team
+    else if (newRole !== oldRole) {
         form.parent_id = '';
+        if (newRole !== 'employee') {
+            form.team_id = '';
+        }
     }
 });
 
+
+// =========== MODAL CONTROLS ===========
 const openCreateModal = () => {
-    form.reset();
-    form.image = null;
-    form.imagePreview = null;
+    form.reset(); // Clear form fields and errors
     modalMode.value = 'create';
     editingUser.value = null;
+    form._method = 'post'; // Set method for creation
     isModalVisible.value = true;
 };
 
 const openEditModal = (user) => {
-    // Reset the form to clear any previous state/errors
     form.reset();
-    
+    modalMode.value = 'edit';
+    editingUser.value = user;
+    form._method = 'put'; // Set method for editing/updating
+
+    // Populate form with the user's existing data
     form.name = user.name;
     form.email = user.email;
     form.role = user.roles[0]?.name || '';
     form.team_id = user.team_id || '';
     form.parent_id = user.parent_id || '';
-    form.password = ''; // Clear password fields for edit mode
-    form.password_confirmation = '';
-    form.image = null; // Start with no new file
     form.imagePreview = user.image ? `/storage/${user.image}` : null;
 
-    modalMode.value = 'edit';
-    editingUser.value = user;
     isModalVisible.value = true;
 };
 
@@ -79,37 +88,40 @@ const closeModal = () => {
     form.clearErrors();
 };
 
+
+// =========== CRUD OPERATIONS ===========
 const submit = () => {
-    if (modalMode.value === 'create') {
-        form.post(route('users.store'), {
-            onSuccess: () => closeModal(),
-            preserveScroll: true,
-        });
-    } else {
-        // Use form.post with _method: 'put' for multipart/form-data updates
-        form.post(route('users.update', editingUser.value.id), {
-            onSuccess: () => closeModal(),
-            preserveScroll: true,
-        });
-    }
+    const routeName = modalMode.value === 'create'
+        ? route('users.store')
+        : route('users.update', editingUser.value.id);
+
+    // Always use form.post() because it correctly handles multipart/form-data for file uploads.
+    // The `form._method` property ('post' or 'put') tells Laravel how to handle the request.
+    form.post(routeName, {
+        onSuccess: () => closeModal(),
+        preserveScroll: true, // Keep the user's scroll position on the page
+    });
 };
 
 const deleteUser = (userId) => {
-    if (confirm('Are you sure you want to delete this user?')) {
+    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
         router.delete(route('users.destroy', userId), {
             preserveScroll: true,
         });
     }
 };
 
-const search = ref(props.filters?.search || '');
+
+// =========== FEATURES ===========
+// Debounced search function to filter users without overwhelming the server
 const searchUsers = debounce(() => {
     router.get(route('users.index'), { search: search.value }, { preserveState: true, replace: true });
 }, 300);
 
+// Computed property for easy access to pagination links
 const paginationLinks = computed(() => props.users.links);
 
-// --- IMAGE UPLOAD LOGIC ---
+// Handles new image selection and creates a local preview URL
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (file) {
@@ -118,7 +130,6 @@ function handleImageUpload(e) {
     }
 }
 </script>
-
 
 <template>
     <Head title="Manage Users" />
@@ -131,7 +142,10 @@ function handleImageUpload(e) {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <h1 class="text-3xl font-bold text-slate-900">Manage Users</h1>
                     <button @click="openCreateModal" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700">
-                        + Add User
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-2 -ml-1">
+                            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+                        </svg>
+                        Add User
                     </button>
                 </div>
 
@@ -145,9 +159,9 @@ function handleImageUpload(e) {
                         <table class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50">
                                 <tr>
-                                    <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase">Name</th>
-                                    <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase">Role</th>
-                                    <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase">Joined On</th>
+                                    <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
+                                    <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
+                                    <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Joined On</th>
                                     <th scope="col" class="relative py-3.5 px-6"><span class="sr-only">Actions</span></th>
                                 </tr>
                             </thead>
@@ -155,14 +169,10 @@ function handleImageUpload(e) {
                                 <tr v-if="!users.data.length">
                                     <td colspan="4" class="px-6 py-8 text-center text-slate-500">No users found.</td>
                                 </tr>
-                                <tr v-for="user in users.data" :key="user.id" class="hover:bg-slate-50">
+                                <tr v-for="user in users.data" :key="user.id" class="hover:bg-slate-50 transition-colors">
                                     <td class="whitespace-nowrap py-4 px-6 text-sm">
                                         <div class="flex items-center gap-3">
-                                            <img
-                                                class="h-10 w-10 rounded-full object-cover"
-                                                :src="user.image ? `/storage/${user.image}` : `https://ui-avatars.com/api/?name=${user.name}&background=random`"
-                                                alt="Profile avatar"
-                                            >
+                                            <img class="h-10 w-10 rounded-full object-cover" :src="user.image ? `/storage/${user.image}` : `https://ui-avatars.com/api/?name=${user.name}&background=random`" alt="Profile avatar">
                                             <div>
                                                 <div class="font-medium text-slate-900">{{ user.name }}</div>
                                                 <div class="text-slate-500">{{ user.email }}</div>
@@ -203,6 +213,7 @@ function handleImageUpload(e) {
             <div class="p-6">
                 <h2 class="text-lg font-bold text-slate-900">{{ modalMode === 'create' ? 'Create New User' : 'Edit User' }}</h2>
                 <form @submit.prevent="submit" class="mt-6 space-y-6">
+                    <!-- General Info -->
                     <div>
                         <label for="name" class="block text-sm font-medium text-slate-700">Name</label>
                         <input v-model="form.name" id="name" type="text" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
@@ -213,22 +224,23 @@ function handleImageUpload(e) {
                         <input v-model="form.email" id="email" type="email" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                         <InputError class="mt-2" :message="form.errors.email" />
                     </div>
+
+                    <!-- Image Upload -->
                     <div>
                         <label for="image" class="block text-sm font-medium text-slate-700">Profile Image</label>
                         <div class="mt-2 flex items-center gap-4">
                             <img v-if="form.imagePreview" :src="form.imagePreview" alt="Preview" class="w-16 h-16 rounded-full object-cover border" />
-                             <img v-else class="w-16 h-16 rounded-full object-cover border bg-slate-100 text-slate-400 flex items-center justify-center" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="No Image">
-                            <input
-                                id="image"
-                                type="file"
-                                accept="image/*"
-                                class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                                @change="handleImageUpload"
-                            />
+                            <div v-else class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                </svg>
+                            </div>
+                            <input id="image" type="file" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" @change="handleImageUpload"/>
                         </div>
                         <InputError class="mt-2" :message="form.errors.image" />
                     </div>
 
+                    <!-- Role & Hierarchy -->
                     <div>
                         <label for="role" class="block text-sm font-medium text-slate-700">Role</label>
                         <select v-model="form.role" id="role" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm capitalize">
@@ -238,7 +250,7 @@ function handleImageUpload(e) {
                         <InputError class="mt-2" :message="form.errors.role" />
                     </div>
 
-                     <!-- DYNAMIC MANAGER (PARENT) SECTION -->
+                    <!-- DYNAMIC MANAGER (PARENT) SECTION -->
                     <div>
                         <div v-if="form.role === 'project-manager'">
                             <label class="block text-sm font-medium text-slate-700">Reports To</label>
@@ -263,6 +275,7 @@ function handleImageUpload(e) {
                         <InputError class="mt-2" :message="form.errors.parent_id" />
                     </div>
 
+                    <!-- Team Assignment for Employees -->
                     <div v-if="form.role === 'employee'">
                          <label for="team_id" class="block text-sm font-medium text-slate-700">Team</label>
                         <select v-model="form.team_id" id="team_id" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
@@ -274,9 +287,7 @@ function handleImageUpload(e) {
 
                     <!-- Flexible Password Section -->
                     <div class="border-t border-slate-200 pt-6">
-                         <h3 class="text-base font-semibold text-slate-800">
-                            {{ modalMode === 'create' ? 'Set Password' : 'Change Password (Optional)' }}
-                        </h3>
+                         <h3 class="text-base font-semibold text-slate-800">{{ modalMode === 'create' ? 'Set Password' : 'Change Password (Optional)' }}</h3>
                         <div class="mt-4 space-y-6">
                            <div>
                                 <label for="password" class="block text-sm font-medium text-slate-700">New Password</label>
@@ -290,6 +301,7 @@ function handleImageUpload(e) {
                         </div>
                     </div>
 
+                    <!-- Form Actions -->
                     <div class="mt-6 flex justify-end gap-3">
                         <button type="button" @click="closeModal" class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50">Cancel</button>
                         <button type="submit" :disabled="form.processing" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50">

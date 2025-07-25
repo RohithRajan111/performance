@@ -38,12 +38,7 @@ const submitTask = () => {
                         </div>
                     </div>
                      <div>
-                        <h3 class="text-lg font-medium text-gray-900">Progress (Based on Tasks)</h3>
-                        <p class="text-sm text-gray-500">Compares tasks completed vs. total tasks assigned.</p>
-                        <div class="mt-2 flex items-center">
-                            <div class="w-full bg-gray-200 rounded-full h-4"><div class="bg-green-600 h-4 rounded-full" :style="{ width: project.task_progress + '%' }"></div></div>
-                            <span class="ml-4 font-semibold text-gray-700">{{ project.task_progress }}%</span>
-                        </div>
+                        
                     </div>
                 </div>
 

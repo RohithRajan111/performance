@@ -8,6 +8,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -50,7 +52,7 @@ class User extends Authenticatable
     ];
 
     // === LEAVE APPLICATIONS ===
-    
+
     /**
      * Get the leave applications for the user.
      */
@@ -97,7 +99,7 @@ class User extends Authenticatable
     }
 
     // === TIME LOGS ===
-    
+
     public function timeLogs()
     {
         return $this->hasMany(TimeLog::class);
@@ -123,14 +125,14 @@ class User extends Authenticatable
     }
 
     // === TEAMS ===
-    
+
     public function teams()
     {
         return $this->belongsToMany(Team::class, 'team_user', 'user_id', 'team_id');
     }
 
     // === NOTIFICATIONS ===
-    
+
     public function unreadNotifications()
     {
         return $this->notifications()->whereNull('read_at');
@@ -147,7 +149,7 @@ class User extends Authenticatable
     }
 
     // === ORGANIZATIONAL HIERARCHY ===
-    
+
     /**
      * Get the parent user (manager/supervisor)
      */
@@ -178,12 +180,12 @@ class User extends Authenticatable
     public function getAllSubordinates()
     {
         $subordinates = collect();
-        
+
         foreach ($this->children as $child) {
             $subordinates->push($child);
             $subordinates = $subordinates->merge($child->getAllSubordinates());
         }
-        
+
         return $subordinates;
     }
 
@@ -202,17 +204,17 @@ class User extends Authenticatable
     {
         $path = collect([$this]);
         $current = $this;
-        
+
         while ($current->parent) {
             $current = $current->parent;
             $path->prepend($current);
         }
-        
+
         return $path;
     }
 
     // === LEAVE APPROVAL ===
-    
+
     /**
      * Get the designated leave approver
      */
@@ -227,24 +229,24 @@ class User extends Authenticatable
     public function getLeaveApprovers()
     {
         $approvers = collect();
-        
+
         // Primary approver
         if ($this->leaveApprover) {
             $approvers->push($this->leaveApprover);
         }
-        
+
         // Fallback to parent if no specific approver
         if ($approvers->isEmpty() && $this->parent) {
             $approvers->push($this->parent);
         }
-        
+
         // Add users with leave management permissions
         $leaveManagers = User::whereHas('roles', function ($query) {
             $query->whereIn('name', ['admin', 'hr', 'project-manager']);
         })->get();
-        
+
         $approvers = $approvers->merge($leaveManagers)->unique('id');
-        
+
         return $approvers;
     }
 
@@ -257,22 +259,22 @@ class User extends Authenticatable
         if ($user->leave_approver_id === $this->id) {
             return true;
         }
-        
+
         // Check if this user is the parent
         if ($user->parent_id === $this->id) {
             return true;
         }
-        
+
         // Check if user has leave management permissions
         if ($this->hasAnyRole(['admin', 'hr', 'project-manager'])) {
             return true;
         }
-        
+
         return false;
     }
 
     // === TASKS ===
-    
+
     /**
      * Get tasks assigned to this user
      */
@@ -287,18 +289,18 @@ class User extends Authenticatable
     public function getTaskCompletionRate(): float
     {
         $totalTasks = $this->assignedTasks()->count();
-        
+
         if ($totalTasks === 0) {
             return 0;
         }
-        
+
         $completedTasks = $this->assignedTasks()->where('status', 'completed')->count();
-        
+
         return round(($completedTasks / $totalTasks) * 100, 1);
     }
 
     // === PROJECTS ===
-    
+
     /**
      * Get projects where user is project manager
      */
@@ -308,7 +310,7 @@ class User extends Authenticatable
     }
 
     // === PERFORMANCE METHODS ===
-    
+
     /**
      * Get user performance score
      */
@@ -317,7 +319,7 @@ class User extends Authenticatable
         $taskScore = $this->getTaskCompletionRate();
         $timeScore = min(100, ($this->getCurrentMonthHours() / 160) * 100);
         $leaveScore = max(0, 100 - ($this->getUsedLeaveDays() / 20) * 100);
-        
+
         return round(($taskScore + $timeScore + $leaveScore) / 3);
     }
 
@@ -343,5 +345,21 @@ class User extends Authenticatable
     {
         // A user BELONGS TO another user (their parent/manager).
         return $this->belongsTo(User::class, 'parent_id');
+    }
+
+    protected function avatarUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                // If the user has an 'image' path stored in the database...
+                if ($this->image) {
+                    // ...return the full public URL to that image from the storage disk.
+                    return Storage::url($this->image);
+                }
+
+                // Otherwise, return a URL to a fallback avatar service (ui-avatars.com)
+                return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=random';
+            }
+        );
     }
 }

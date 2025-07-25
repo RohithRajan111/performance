@@ -127,7 +127,7 @@ const submit = () => {
                         <textarea v-model="form.description" id="description" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
                         <InputError class="mt-2" :message="form.errors.description" />
                     </div>
-                    
+
                     <div class="mt-6 flex justify-end gap-3">
                         <button type="button" @click="closeModal" class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
                             Cancel

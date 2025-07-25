@@ -1,10 +1,12 @@
 <script setup>
+// NO FullCalendar CSS imports are needed. The JS plugins handle style injection.
+
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import InputError from '@/Components/InputError.vue';
-import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3'; // Import usePage
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { formatDistanceToNowStrict } from 'date-fns';
+import { formatDistanceToNowStrict, format } from 'date-fns';
 
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -14,28 +16,70 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+// --- PROPS ---
 const props = defineProps({
     user: { type: Object, required: true },
     attendance: { type: Object, required: true },
     calendarEvents: { type: Array, default: () => [] },
-    greeting: { type: Object, required: true }
+    greeting: { type: Object, required: true },
+    projects: { type: Array, default: () => [] },
+    myTasks: { type: Array, default: () => [] },
 });
 
-// --- NEW LOGIC FOR ROLE-BASED VISIBILITY ---
+// --- ROLE-BASED VISIBILITY & HELPERS ---
 const page = usePage();
+const authUser = computed(() => page.props.auth.user);
 
-const canViewAttendanceStats = computed(() => {
-    const authUser = page.props.auth.user;
-    // Safety check: ensure user and permissions array exist
-    if (!authUser || !Array.isArray(authUser.permissions)) {
+const hasPermission = (permission) => {
+    if (!authUser.value || !Array.isArray(authUser.value.permissions)) {
         return false;
     }
-    // Check if the user has the required permission
-    return authUser.permissions.includes('manage employees');
-});
+    return authUser.value.permissions.includes(permission);
+};
+
+const canViewAttendanceStats = computed(() => hasPermission('manage employees'));
+
+// --- TASK MANAGEMENT ---
+const updateTaskStatus = (task, newStatus) => {
+    // This sends a PATCH request to your backend.
+    // Ensure you have a route like: Route::patch('/tasks/{task}/status', ...)->name('tasks.updateStatus');
+    router.patch(route('tasks.updateStatus', task.id), {
+        status: newStatus
+    }, {
+        preserveScroll: true,
+    });
+};
+
+// --- HELPER FUNCTIONS FOR THE 'MY ASSIGNED TASKS' PANEL ---
+
+// Determines the background/border color for a task item based on its status.
+const getTaskStatusColor = (status) => {
+    if (status === 'completed' || status === 'done') return 'bg-green-50 border-green-200';
+    if (status === 'in_progress') return 'bg-blue-50 border-blue-200';
+    // Default for 'todo', 'pending', etc.
+    return 'bg-gray-50 border-gray-200';
+};
+
+// Determines the color for the small status badge.
+const getStatusBadgeColor = (status) => {
+    if (status === 'completed' || status === 'done') return 'bg-green-100 text-green-800';
+    if (status === 'in_progress') return 'bg-blue-100 text-blue-800';
+    return 'bg-gray-100 text-gray-800';
+};
+
+// Converts snake_case status from the DB (e.g., 'in_progress') to a more readable format.
+const getStatusDisplayName = (status) => {
+    return (status || 'todo').replace(/_/g, ' ');
+};
+
+// Logic to show the "Start" button. Now robustly handles 'todo' or 'pending'.
+const canStartTask = (status) => status === 'todo' || status === 'pending';
+
+// Logic to show the "Done" button.
+const canCompleteTask = (status) => status === 'in_progress';
 
 
-// --- All other script logic remains the same ---
+// --- OTHER EXISTING SCRIPT LOGIC ---
 const companyExperience = computed(() => {
     if (!props.user.hire_date) return 'N/A';
     return formatDistanceToNowStrict(new Date(props.user.hire_date));
@@ -45,7 +89,6 @@ const isNoteModalVisible = ref(false);
 const modalMode = ref('create');
 const editingNoteId = ref(null);
 const noteForm = useForm({ note: '', date: '' });
-const isHiringAlertVisible = ref(true);
 const now = ref(new Date());
 let timeUpdater = null;
 const liveTime = computed(() => now.value.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
@@ -184,23 +227,17 @@ const chartOptions = {
 
         <div class="p-4 sm:p-6 lg:p-8 font-sans">
             <div class="max-w-7xl mx-auto space-y-6">
-                <!-- Hiring Alert Banner
-                <div v-if="isHiringAlertVisible" class="bg-violet-100 border border-violet-200 text-violet-800 px-4 py-3 rounded-xl relative flex items-center justify-between">
-                    <div class="flex items-center"><span class="mr-3"><svg class="w-6 h-6 text-violet-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-1.707 1.707A1 1 0 003 15v1a1 1 0 001 1h12a1 1 0 001-1v-1a1 1 0 00-.293-.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path></svg></span><span><span class="font-semibold">Alert!</span> We're hiring UI/UX Designers. 3 positions available (Required 2.5 years of relevant experience)<a href="#" class="font-bold underline ml-2 hover:text-violet-900">Refer Now</a></span></div>
-                    <button @click="isHiringAlertVisible = false" class="p-1 rounded-full hover:bg-violet-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-                </div> -->
-
                 <!-- Dashboard Header -->
                 <div class="flex items-center justify-between">
                     <h1 class="text-3xl font-bold text-slate-900">Dashboard</h1>
                     <div class="flex items-center space-x-3">
-                        <!-- <button class="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">Request Permission</button> -->
                         <Link :href="route('leave.index')" class="px-4 py-2 text-sm font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-sm">Create Leave Request</Link>
                     </div>
                 </div>
 
                 <!-- Grid for Top Row Cards -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- User Welcome Card -->
                     <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                         <div class="flex items-start justify-between">
                             <div class="flex items-center space-x-4">
@@ -221,18 +258,81 @@ const chartOptions = {
                         </div>
                     </div>
 
+                    <!-- Greeting Card -->
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <h3 class="font-semibold text-slate-800">Good Morning</h3>
-                        <div class="flex items-center my-auto"><span class="text-4xl mr-4">🌤️</span><span class="text-3xl font-bold text-slate-900">{{ liveTime }}</span></div>
+                        <h3 class="font-semibold text-slate-800">Good {{ greeting.message }}</h3>
+                        <div class="flex items-center my-auto"><span class="text-4xl mr-4">{{ greeting.icon }}</span><span class="text-3xl font-bold text-slate-900">{{ liveTime }}</span></div>
                         <div class="text-sm text-slate-500 text-right border-t pt-2 border-slate-100">Today, {{ greeting.date }}</div>
                     </div>
                 </div>
 
-                <!-- Grid for Bottom Row Cards -->
+                <!-- Projects and Tasks Panels -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Panel: Active Projects -->
+                    <div v-if="projects && projects.length > 0" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-lg font-bold text-gray-900">Active Projects</h3>
+                        <ul class="mt-4 space-y-3">
+                            <li v-for="project in projects" :key="project.id" class="p-4 bg-gray-50 rounded-lg border border-gray-200 flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold text-gray-800">{{ project.name }}</p>
+                                    <span class="text-sm text-gray-600 block capitalize">Status: {{ project.status }}</span>
+                                </div>
+                                <div>
+                                    <Link :href="route('projects.show', project.id)" class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 shadow-sm">
+                                        <span v-if="hasPermission('assign tasks')">View / Assign Tasks</span>
+                                        <span v-else>View Progress</span>
+                                    </Link>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Panel: My Assigned Tasks -->
+                     <div v-if="myTasks && myTasks.length > 0" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                         <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900 flex items-center">My Assigned Tasks</h3>
+                            <span class="text-sm text-gray-500">{{ myTasks.length }} total tasks</span>
+                        </div>
+                        <div class="space-y-3 max-h-96 overflow-y-auto">
+                            <div v-for="task in myTasks" :key="task.id"
+                                 class="p-3 rounded-lg border transition-all duration-200 hover:shadow-sm"
+                                 :class="getTaskStatusColor(task.status)">
+                                <div class="flex justify-between items-center">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-2">
+                                            <h4 class="text-sm font-medium text-gray-800">{{ task.name }}</h4>
+                                            <span class="px-1.5 py-0.5 text-xs font-medium rounded capitalize"
+                                                  :class="getStatusBadgeColor(task.status)">
+                                                {{ getStatusDisplayName(task.status) }}
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">{{ task.project?.name || 'No Project' }}</p>
+                                    </div>
+                                    <div class="flex gap-1 ml-3">
+                                        <button v-if="canStartTask(task.status)"
+                                                @click="updateTaskStatus(task, 'in_progress')"
+                                                class="px-2 py-1 text-xs font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors">
+                                            Start
+                                        </button>
+                                        <button v-if="canCompleteTask(task.status)"
+                                                @click="updateTaskStatus(task, 'completed')"
+                                                class="px-2 py-1 text-xs font-medium text-white bg-green-500 rounded hover:bg-green-600 transition-colors">
+                                            Done
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Calendar and Attendance Grid -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Calendar Card -->
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200" :class="canViewAttendanceStats ? 'lg:col-span-2' : 'lg:col-span-3'">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-bold text-slate-900">March 2025</h3>
+                            <h3 class="text-lg font-bold text-slate-900">My Calendar</h3>
                             <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
                                 <button @click="changeCalendarView('dayGridMonth')" :class="[currentCalendarView === 'dayGridMonth' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900']" class="px-3 py-1 text-sm font-medium rounded-md transition-all">Month</button>
                                 <button @click="changeCalendarView('dayGridWeek')" :class="[currentCalendarView === 'dayGridWeek' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900']" class="px-3 py-1 text-sm font-medium rounded-md transition-all">Week</button>
@@ -242,8 +342,9 @@ const chartOptions = {
                         <FullCalendar :options="calendarOptions" ref="calendar" />
                     </div>
 
+                    <!-- Attendance Stats Card -->
                     <div v-if="canViewAttendanceStats" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 class="text-lg font-bold text-slate-900 mb-4">Number of Total Employees</h3>
+                        <h3 class="text-lg font-bold text-slate-900 mb-4">Team Attendance</h3>
                         <div class="relative h-48 mb-4">
                             <Doughnut :data="chartData" :options="chartOptions" />
                             <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span class="text-4xl font-bold text-slate-900">{{ attendance.total }}</span></div>
@@ -271,12 +372,18 @@ const chartOptions = {
         </div>
     </AuthenticatedLayout>
 </template>
-
 <style>
-/* Global styles for FullCalendar */
-.fc .fc-toolbar.fc-header-toolbar { margin-bottom: 1rem; }
-.fc .fc-daygrid-day-number { padding: 0.5rem; font-size: 0.875rem; font-weight: 500; }
-.fc .fc-day-today { background-color: #f1f5f9 !important; }
-.fc-theme-standard .fc-scrollgrid, .fc-theme-standard th { border: none; }
-.fc-event { white-space: normal !important; }
+/* Global styles for FullCalendar - needed for basic rendering */
+.fc .fc-daygrid-day-number {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  padding: 0.25rem !important;
+  user-select: none;
+}
+.fc-theme-standard .fc-scrollgrid {
+  border-color: #e2e8f0 !important;
+}
+.fc .fc-event-main {
+    white-space: normal !important; /* Allow event text to wrap */
+}
 </style>
