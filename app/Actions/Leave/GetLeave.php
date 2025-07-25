@@ -83,7 +83,7 @@ class GetLeave
             'leaveRequests' => $requests,
             'canManage' => $user->can('manage leave applications'),
             'highlightedDates' => $highlighted,
-            'remainingLeaveBalance' => $remainingLeaveBalance,
+            'leave_balances' => $remainingLeaveBalance,
         ];
     }
 }
