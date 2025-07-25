@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import Modal from '@/Components/Modal.vue';
+import Modal from '@/Components/Modal.vue'
 import InputError from '@/Components/InputError.vue'
 import InputLabel from '@/Components/InputLabel.vue'
 import PrimaryButton from '@/Components/PrimaryButton.vue'
@@ -19,18 +19,20 @@ import {
   TrashIcon,
   BriefcaseIcon,
   SparklesIcon,
+  DocumentIcon,
 } from '@heroicons/vue/24/outline'
 
-// --- New: Easy-to-maintain leave descriptions ---
+// Leave type descriptions
 const leaveTypeDescriptions = {
   annual: {
     label: "Annual Leave",
     description: "Used for planned vacations and time away from work. Should be requested at least 7 days in advance.",
   },
   sick: {
-    label: "Sick Leave",
-    description: "For illness or medical appointments. Can be taken as needed, often requires supporting documents.",
-  },
+  label: "Sick Leave",
+  description: "For illness or medical appointments. Supporting documents can be uploaded during or after leave submission, even after approval.",
+},
+
   personal: {
     label: "Personal Leave",
     description: "For personal matters such as family emergencies, errands, or short-term absences. Request at least 3 days in advance.",
@@ -56,7 +58,7 @@ const props = defineProps({
   leave_balances: Number,
 })
 
-const page = usePage();
+const page = usePage()
 
 const leaveColors = {
   pending: '#fbbf24',
@@ -71,11 +73,10 @@ const leaveColors = {
   holiday: 'bg-purple-500',
 }
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
+const today = new Date()
+today.setHours(0, 0, 0, 0)
 
-const isLeaveModalVisible = ref(false);
-
+const isLeaveModalVisible = ref(false)
 const form = useForm({
   start_date: '',
   end_date: '',
@@ -84,44 +85,51 @@ const form = useForm({
   reason: '',
   leave_type: 'annual',
 })
+const supportingDocument = ref(null)
+
+function onFileChange(event) {
+  const file = event.target.files[0]
+  supportingDocument.value = file
+}
 
 function toISODateOnly(date) {
-  if (!date) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  if (!date) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 const calendarEvents = computed(() => {
   return (props.highlightedDates || []).map(ev => ({
     display: 'background',
     start: ev.start,
-    end: ev.end ? toISODateOnly(new Date(new Date(ev.end + 'T00:00:00').getTime() + 24 * 60 * 60 * 1000)) : ev.start,
+    end: ev.end ? toISODateOnly(new Date(new Date(ev.end + 'T00:00:00').getTime() + 86400000)) : ev.start,
     color: leaveColors[ev.color_category] || '#9ca3af',
-  }));
-});
+  }))
+})
 
 const upcomingEvents = computed(() => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   return (props.highlightedDates || [])
     .filter(event => new Date(event.start + 'T00:00:00') >= today)
     .sort((a, b) => new Date(a.start) - new Date(b.start))
-    .slice(0, 4);
-});
+    .slice(0, 4)
+})
 
 const handleDateClick = (info) => {
-  const clicked = new Date(info.dateStr + 'T00:00:00');
+  const clicked = new Date(info.dateStr + 'T00:00:00')
   if (clicked < today) {
-    alert('Please select a date that is today or in the future.');
-    return;
+    alert('Please select a date that is today or in the future.')
+    return
   }
-  form.reset();
-  form.start_date = info.dateStr;
-  form.end_date = info.dateStr;
-  isLeaveModalVisible.value = true;
-};
+  supportingDocument.value = null
+  form.reset()
+  form.start_date = info.dateStr
+  form.end_date = info.dateStr
+  isLeaveModalVisible.value = true
+}
 
 const calendarOptions = ref({
   plugins: [dayGridPlugin, interactionPlugin],
@@ -137,68 +145,120 @@ const calendarOptions = ref({
 })
 
 watch(calendarEvents, (newEvents) => {
-  calendarOptions.value.events = newEvents;
-});
+  calendarOptions.value.events = newEvents
+})
 
-// Flexible half/full leave calculation mirrors backend logic!
 const computedLeaveDays = computed(() => {
-  const start = form.start_date ? new Date(form.start_date + 'T00:00:00') : null;
-  const end = form.end_date ? new Date(form.end_date + 'T00:00:00') : null;
-  if (!start || !end || start > end) return 0;
+  const start = form.start_date ? new Date(form.start_date + 'T00:00:00') : null
+  const end = form.end_date ? new Date(form.end_date + 'T00:00:00') : null
+  if (!start || !end || start > end) return 0
 
-  const sHalf = form.start_half_session;
-  const eHalf = form.end_half_session;
-  const isSingleDay = start.getTime() === end.getTime();
+  const sHalf = form.start_half_session
+  const eHalf = form.end_half_session
+  const isSingleDay = start.getTime() === end.getTime()
 
   if (isSingleDay) {
-      if (!sHalf && !eHalf) {
-          return 1.0;
-      } else if (!sHalf && eHalf === 'morning') {
-          return 0.5;
-      } else if (sHalf === 'afternoon' && !eHalf) {
-          return 0.5;
-      } else if (sHalf === 'afternoon' && eHalf === 'morning') {
-          return 0; // invalid
-      } else {
-          return 1.0;
-      }
-  } 
-  else {
-      const firstDayValue = (sHalf === 'afternoon') ? 0.5 : 1.0;
-      const lastDayValue = (eHalf === 'morning') ? 0.5 : 1.0;
-      const diffInMs = end.getTime() - start.getTime();
-      const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-      const daysInBetween = Math.max(0, diffInDays - 1);
-      return firstDayValue + lastDayValue + daysInBetween;
+    if (!sHalf && !eHalf) return 1.0
+    else if (!sHalf && eHalf === 'morning') return 0.5
+    else if (sHalf === 'afternoon' && !eHalf) return 0.5
+    else if (sHalf === 'afternoon' && eHalf === 'morning') return 0
+    else return 1.0
   }
-});
+
+  const firstDayValue = (sHalf === 'afternoon') ? 0.5 : 1.0
+  const lastDayValue = (eHalf === 'morning') ? 0.5 : 1.0
+  const diffInMs = end.getTime() - start.getTime()
+  const diffInDays = diffInMs / (1000 * 60 * 60 * 24)
+  const daysInBetween = Math.max(0, diffInDays - 1)
+  return firstDayValue + lastDayValue + daysInBetween
+})
 
 const closeLeaveModal = () => {
-  isLeaveModalVisible.value = false;
-};
+  isLeaveModalVisible.value = false
+  supportingDocument.value = null
+}
 
 const submitLeaveFromModal = () => {
-  form.post(route('leave.store'), {
+  const formData = new FormData()
+  for (const [key, val] of Object.entries(form.data())) {
+    formData.append(key, val ?? '')
+  }
+  if (supportingDocument.value) {
+    formData.append('supporting_document', supportingDocument.value)
+  }
+  router.post(route('leave.store'), formData, {
     preserveScroll: true,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onSuccess: () => closeLeaveModal(),
+  })
+}
+
+// Upload Modal State and Methods
+const isUploadModalVisible = ref(false)
+const uploadFile = ref(null)
+const uploadErrors = ref({})
+const uploadProcessing = ref(false)
+const currentUploadLeaveId = ref(null)
+
+const openUploadModal = (leaveId) => {
+  currentUploadLeaveId.value = leaveId
+  uploadFile.value = null
+  uploadErrors.value = {}
+  uploadProcessing.value = false
+  isUploadModalVisible.value = true
+}
+
+const closeUploadModal = () => {
+  isUploadModalVisible.value = false
+  currentUploadLeaveId.value = null
+  uploadFile.value = null
+  uploadErrors.value = {}
+  uploadProcessing.value = false
+}
+
+function onUploadFileChange(event) {
+  uploadFile.value = event.target.files[0]
+}
+
+const submitUpload = () => {
+  if (!uploadFile.value) {
+    uploadErrors.value.supporting_document = 'Please select a file.'
+    return
+  }
+  uploadProcessing.value = true
+  const formData = new FormData()
+  formData.append('supporting_document', uploadFile.value)
+
+  router.post(route('leave.uploadDocument', { leave_application: currentUploadLeaveId.value }), formData, {
+    preserveScroll: true,
+    headers: { 'Content-Type': 'multipart/form-data' },
     onSuccess: () => {
-      closeLeaveModal();
+      uploadProcessing.value = false
+      closeUploadModal()
+      router.reload() // refresh to show updated document link
+    },
+    onError: (errors) => {
+      uploadProcessing.value = false
+      uploadErrors.value = errors
     },
   })
 }
 
-const formatLeaveDays = (days) => Number(days).toFixed(days % 1 === 0 ? 0 : 1);
+const formatLeaveDays = (days) => Number(days).toFixed(days % 1 === 0 ? 0 : 1)
 
 const statusConfig = {
   approved: { class: 'bg-green-100 text-green-800', icon: CheckBadgeIcon },
   rejected: { class: 'bg-red-100 text-red-800', icon: XCircleIcon },
   pending: { class: 'bg-amber-100 text-amber-800', icon: PencilSquareIcon },
 }
+
 const updateStatus = (request, newStatus) => {
   router.patch(route('leave.update', { leave_application: request.id }), { status: newStatus }, { preserveScroll: true })
 }
+
 const cancelLeave = (request) => {
   if (confirm('Are you sure you want to cancel this leave request?')) {
-    router.delete(route('leave.cancel', { leave_application: request.id }), { preserveScroll: true, })
+    router.delete(route('leave.cancel', { leave_application: request.id }), { preserveScroll: true })
   }
 }
 </script>
@@ -211,17 +271,20 @@ const cancelLeave = (request) => {
       <h2 class="font-semibold text-xl text-gray-800 leading-tight">Leave Applications</h2>
     </template>
 
-    <!-- "Book Time Off" Modal -->
+    <!-- Leave Request Modal -->
     <Modal :show="isLeaveModalVisible" @close="closeLeaveModal" max-width="lg">
       <div class="p-6 font-sans">
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-bold text-gray-800">Book time off</h2>
-          <button @click="closeLeaveModal" class="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+          <button @click="closeLeaveModal" class="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition" aria-label="Close modal">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
           </button>
         </div>
 
-        <form @submit.prevent="submitLeaveFromModal" class="mt-6 space-y-6">
+        <form @submit.prevent="submitLeaveFromModal" class="mt-6 space-y-6" enctype="multipart/form-data">
+          <!-- Form Fields -->
           <div class="grid grid-cols-2 gap-6">
             <div>
               <InputLabel value="Who for" />
@@ -267,6 +330,12 @@ const cancelLeave = (request) => {
             <InputError class="mt-1" :message="form.errors.reason" />
           </div>
 
+          <div v-if="form.leave_type === 'sick'">
+            <InputLabel for="supporting_document" value="Supporting Document (Optional)" />
+            <input id="supporting_document" type="file" @change="onFileChange" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full" />
+            <InputError class="mt-1" :message="form.errors.supporting_document" />
+          </div>
+
           <div class="border-t border-gray-200 pt-5">
             <p v-if="computedLeaveDays > 0" class="text-center text-sm text-gray-600 mb-5">
               This request will use
@@ -286,11 +355,23 @@ const cancelLeave = (request) => {
       </div>
     </Modal>
 
-    <div class="py-8 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
-      <!-- Employee View (Calendar + Info Panel) -->
-      <div v-if="!canManage" class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    <!-- Upload Document Modal -->
+    <Modal :show="isUploadModalVisible" @close="closeUploadModal" max-width="sm">
+      <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="p-6 space-y-4">
+        <InputLabel for="upload_file" value="Upload Supporting Document" />
+        <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
+        <InputError :message="uploadErrors.supporting_document" />
+        <div class="flex justify-end gap-3">
+          <button type="button" @click="closeUploadModal" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100">Cancel</button>
+          <PrimaryButton type="submit" :disabled="uploadProcessing">{{ uploadProcessing ? 'Uploading...' : 'Upload' }}</PrimaryButton>
+        </div>
+      </form>
+    </Modal>
 
-        <!-- Left Column: Calendar -->
+    <div class="py-8 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+      <!-- Employee View -->
+      <div v-if="!canManage" class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <!-- Calendar -->
         <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
@@ -304,19 +385,16 @@ const cancelLeave = (request) => {
           </div>
         </div>
 
-        <!-- Right Column: Info Panels -->
+        <!-- Info Panels -->
         <div class="lg:col-span-1 space-y-6">
-
-          <!-- Widget: Leave Balance Breakdown -->
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
               <BriefcaseIcon class="h-6 w-6 text-gray-500" />
-                Remaining Leave Balance
+              Remaining Leave Balance
             </h3>
-                <p class="text-2xl font-bold text-gray-800">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</p>
+            <p class="text-2xl font-bold text-gray-800">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</p>
           </div>
 
-          <!-- Widget: About Leave Types -->
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 class="text-lg font-medium text-gray-900 mb-3 flex items-center gap-2">
               <CalendarDaysIcon class="h-6 w-6 text-indigo-500" />
@@ -330,9 +408,6 @@ const cancelLeave = (request) => {
             </ul>
           </div>
 
-
-
-          <!-- Widget: Upcoming Time Off -->
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
               <SparklesIcon class="h-6 w-6 text-gray-500" />
@@ -352,7 +427,7 @@ const cancelLeave = (request) => {
         </div>
       </div>
 
-      <!-- Leave Requests Table (for both employees and managers) -->
+      <!-- Leave Requests Table -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="p-4 sm:p-6 border-b border-gray-200">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
@@ -375,6 +450,7 @@ const cancelLeave = (request) => {
                 <th class="px-6 py-3 font-medium text-center">Duration</th>
                 <th class="px-6 py-3 font-medium">Reason</th>
                 <th class="px-6 py-3 font-medium">Status</th>
+                <th class="px-6 py-3 font-medium">Document</th>
                 <th class="px-6 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -397,6 +473,18 @@ const cancelLeave = (request) => {
                     {{ request.status }}
                   </span>
                 </td>
+                <td class="px-6 py-4 text-center whitespace-nowrap">
+                  <a
+                    v-if="request.supporting_document_path"
+                    :href="`/storage/${request.supporting_document_path}`"
+                    target="_blank"
+                    class="text-indigo-600 hover:underline flex items-center justify-center gap-1"
+                    title="View supporting document"
+                  >
+                    <DocumentIcon class="h-5 w-5" /> View
+                  </a>
+                  <span v-else class="text-gray-400 text-xs italic">—</span>
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right">
                   <div v-if="props.canManage && request.status === 'pending'" class="flex justify-end gap-2">
                     <button @click="updateStatus(request, 'approved')" class="p-1.5 rounded-md hover:bg-green-100 text-green-600" title="Approve"><CheckBadgeIcon class="h-5 w-5"/></button>
@@ -405,7 +493,13 @@ const cancelLeave = (request) => {
                   <div v-else-if="!props.canManage && request.status === 'pending'">
                     <button @click="cancelLeave(request)" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Cancel Request"><TrashIcon class="h-5 w-5" /></button>
                   </div>
-                  <span v-else class="text-xs text-gray-400">--</span>
+                 <div v-else-if="!props.canManage && !request.supporting_document_path">
+  <!-- Show Upload Document button only if no document uploaded yet -->
+  <button @click="openUploadModal(request.id)" class="text-indigo-600 hover:underline text-sm">
+    Upload Document
+  </button>
+</div>
+
                 </td>
               </tr>
             </tbody>

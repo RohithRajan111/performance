@@ -66,6 +66,14 @@ class StoreLeave
         }
 
 
+        // Check if file exists (assumes file key: 'supporting_document')
+    if (isset($data['supporting_document'])) {
+        $file = $data['supporting_document'];
+        $path = $file->store('leave_documents/' . auth()->id(), 'public');
+        $data['supporting_document_path'] = $path;
+    }
+
+
         $leaveApplication = LeaveApplication::create([
             'user_id' => $user->id,
             'start_date' => $start,
@@ -77,6 +85,7 @@ class StoreLeave
             'leave_days' => $leaveDays,
             'salary_deduction_days' => 0,
             'status' => 'pending',
+            'supporting_document_path' => $data['supporting_document_path'] ?? null,
         ]);
 
         $this->sendNotifications($leaveApplication);

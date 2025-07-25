@@ -40,6 +40,7 @@ class StoreLeaveRequest extends FormRequest
             // New session fields instead of old day_type and half_session
             'start_half_session' => ['nullable', 'in:morning,afternoon'],
             'end_half_session' => ['nullable', 'in:morning,afternoon'],
+            'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ];
     }
 
