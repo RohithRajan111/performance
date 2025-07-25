@@ -24,25 +24,25 @@ class ProjectController extends Controller
     public function index(CreateProject $createProject): Response
     {
         $user = Auth::user();
-        
+
         $query = Project::with(['projectManager', 'team', 'tasks'])->latest();
 
         // Role-based scoping for viewing projects
         if ($user->hasRole('project-manager')) {
             $query->where('project_manager_id', $user->id);
-        } elseif (!($user->hasRole('admin') || $user->hasRole('hr'))) { // Assuming HR can also see all
+        } elseif (! ($user->hasRole('admin') || $user->hasRole('hr'))) { // Assuming HR can also see all
             // For team leads and employees, scope to their teams
             $teamIds = $user->teams->pluck('id');
             $query->whereIn('team_id', $teamIds);
         }
-        
+
         $projects = $query->get();
-        
+
         // This action now returns an array with both 'teams' and 'projectManagers'
         $creationData = $createProject->handle();
 
         return Inertia::render('Projects/Index', [
-            'projects' => $projects->map(fn($project) => [
+            'projects' => $projects->map(fn ($project) => [
                 'id' => $project->id,
                 'name' => $project->name,
                 'team' => $project->team,
@@ -62,6 +62,7 @@ class ProjectController extends Controller
     public function store(StoreProjectRequest $request, StoreProject $storeProject)
     {
         $storeProject->handle($request->validated());
+
         return Redirect::route('projects.index')->with('success', 'Project created successfully.');
     }
 
@@ -71,6 +72,7 @@ class ProjectController extends Controller
     public function show(Project $project, ShowProject $showProject): Response
     {
         $projectData = $showProject->handle($project);
+
         return Inertia::render('Projects/Show', $projectData);
     }
 }

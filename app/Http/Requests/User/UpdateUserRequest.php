@@ -20,13 +20,13 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($userId)],
-            
+
             // ⭐️ KEY CHANGE: 'nullable' allows this field to be empty
             // If it's not empty, it must be a string, min 8 chars, and confirmed.
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
 
             'role' => ['required', 'string', Rule::exists('roles', 'name')],
-            
+
             // ⭐️ KEY CHANGE: 'nullable' allows this field to be empty
             'team_id' => ['nullable', 'integer', Rule::exists('teams', 'id')],
             'parent_id' => ['nullable', 'integer', Rule::exists('users', 'id')],

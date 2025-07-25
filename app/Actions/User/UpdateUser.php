@@ -19,7 +19,7 @@ class UpdateUser
         // Update the user with the provided data
         $data = array_filter($data, function ($value) {
             return $value !== null; // Filter out null values
-        }); 
+        });
 
         $user->update([
             'name' => $data['name'],
@@ -30,11 +30,11 @@ class UpdateUser
             'image' => $data['image'] ?? $user->image, // Keep existing
         ]);
 
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $user->update(['password' => Hash::make($data['password'])]);
         }
 
-        if (!empty($data['roles'])) {
+        if (! empty($data['roles'])) {
             $user->syncRoles($data['roles']);
         }
 

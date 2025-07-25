@@ -9,8 +9,6 @@ class CreateProject
 {
     /**
      * Gathers all the necessary data required for the "Create Project" form/modal.
-     *
-     * @return array
      */
     public function handle(): array
     {

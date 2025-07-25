@@ -4,8 +4,6 @@ namespace App\Notifications;
 
 use App\Models\LeaveApplication;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class LeaveRequestSubmitted extends Notification
@@ -38,12 +36,12 @@ class LeaveRequestSubmitted extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'title'     => 'New Leave Request',
-            'message'   => 'A new leave application from ' . $this->leaveApplication->user->name . ' requires your approval.',
-            'type'      => 'leave_request', // For the frontend icon
-            'leave_id'  => $this->leaveApplication->id,
+            'title' => 'New Leave Request',
+            'message' => 'A new leave application from '.$this->leaveApplication->user->name.' requires your approval.',
+            'type' => 'leave_request', // For the frontend icon
+            'leave_id' => $this->leaveApplication->id,
             'user_name' => $this->leaveApplication->user->name,
-            'url'       => route('leave.index'), // Link to the leave management page for admins/hr
+            'url' => route('leave.index'), // Link to the leave management page for admins/hr
         ];
     }
 }

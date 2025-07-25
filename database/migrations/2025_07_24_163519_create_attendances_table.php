@@ -26,6 +26,7 @@ return new class extends Migration
             $table->index(['user_id', 'date']);
         });
     }
+
     /**
      * Reverse the migrations.
      */

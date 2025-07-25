@@ -14,7 +14,7 @@ class EditUser
         $user->load('roles');
 
         return [
-            'user'  => $user,
+            'user' => $user,
             'roles' => Role::all(),
             'teams' => Team::all(),
         ];

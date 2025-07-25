@@ -29,7 +29,7 @@ class StoreProject
             $memberIds = $team->members()->pluck('id')->toArray();
 
             // Ensure the Project Manager is included as a member
-            if (!in_array($project->project_manager_id, $memberIds)) {
+            if (! in_array($project->project_manager_id, $memberIds)) {
                 $memberIds[] = $project->project_manager_id;
             }
 

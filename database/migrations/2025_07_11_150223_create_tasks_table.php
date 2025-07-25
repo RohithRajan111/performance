@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('assigned_to_id')->constrained('users'); // Links to users table
 
             $table->string('status')->default('todo');
-             $table->date('due_date')->nullable();// todo, in-progress, done
+            $table->date('due_date')->nullable(); // todo, in-progress, done
             $table->timestamps();
         });
     }

@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Project;
 use App\Models\Team;
-use App\Models\User;
-use App\Models\Project; // <-- Make sure this is imported at the top
+use App\Models\User; // <-- Make sure this is imported at the top
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -21,7 +21,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $permissions = [
             'log working hours', 'apply for leave', 'assign tasks', 'view team progress',
             'assign projects', 'view all projects progress', 'view all working hours',
-            'manage leave applications', 'manage employees', 'manage roles', 'view leaves'
+            'manage leave applications', 'manage employees', 'manage roles', 'view leaves',
         ];
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);

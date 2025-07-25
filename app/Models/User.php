@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -28,7 +28,7 @@ class User extends Authenticatable
         'leave_approver_id',
         'leave_balance', // Add this when you create the migration
         'designation',
-        'image'
+        'image',
     ];
 
     /**
@@ -82,13 +82,12 @@ class User extends Authenticatable
      * Get used leave days for current year
      */
     public function getUsedLeaveDays(): float
-{
-    return $this->leaveApplications()
-        ->where('status', 'approved')
-        ->whereYear('start_date', now()->year)
-        ->sum('leave_days'); // sum fractional days instead of date difference
-}
-
+    {
+        return $this->leaveApplications()
+            ->where('status', 'approved')
+            ->whereYear('start_date', now()->year)
+            ->sum('leave_days'); // sum fractional days instead of date difference
+    }
 
     /**
      * Get pending leave applications
@@ -332,15 +331,18 @@ class User extends Authenticatable
             ->where('work_date', '>=', Carbon::now()->subDays(7))
             ->exists();
     }
+
     public function manager()
     {
         // We use your existing 'parent_id' column for this relationship
         return $this->belongsTo(User::class, 'parent_id');
     }
+
     public function calendarNotes()
     {
         return $this->hasMany(CalendarNote::class);
     }
+
     public function parent()
     {
         // A user BELONGS TO another user (their parent/manager).
@@ -358,7 +360,7 @@ class User extends Authenticatable
                 }
 
                 // Otherwise, return a URL to a fallback avatar service (ui-avatars.com)
-                return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=random';
+                return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=random';
             }
         );
     }

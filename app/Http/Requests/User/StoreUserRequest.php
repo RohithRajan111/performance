@@ -24,22 +24,21 @@ class StoreUserRequest extends FormRequest
     {
         return [
 
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email',
+            'password' => ['required', Password::defaults()],
+            'role' => 'required|string|exists:roles,name',
+            'team_id' => 'nullable|exists:teams,id',
+            'parent_id' => 'nullable|exists:users,id',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
 
-        'name' => 'required|string|max:255',
-        'email' => 'required|string|email|max:255|unique:users,email',
-        'password' => ['required', Password::defaults()],
-        'role' => 'required|string|exists:roles,name',
-        'team_id' => 'nullable|exists:teams,id',
-        'parent_id' => 'nullable|exists:users,id',
-        'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        
         ];
     }
 
     public function withValidator($validator)
     {
 
-          $validator->sometimes('parent_id', 'required|integer|exists:users,id', function ($input) {
+        $validator->sometimes('parent_id', 'required|integer|exists:users,id', function ($input) {
             return in_array($input->role, ['project-manager', 'team-lead', 'employee']);
         });
 

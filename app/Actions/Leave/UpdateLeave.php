@@ -3,11 +3,9 @@
 namespace App\Actions\Leave;
 
 use App\Models\LeaveApplication;
-
-use Illuminate\Support\Facades\Auth;
 use App\Notifications\LeaveRequestApproved;
-
 use App\Notifications\LeaveRequestRejected;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateLeave
 {
@@ -33,7 +31,7 @@ class UpdateLeave
                 $applicant->notify(new LeaveRequestRejected($leaveApplication));
             }
         }
-        
+
         // --- END OF FIX ---
     }
 }

@@ -1,22 +1,22 @@
 <?php
 
-use App\Http\Controllers\LeaveApplicationController;
-use App\Http\Controllers\PerformanceReportController;
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeaveApplicationController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PerformanceReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\TaskController;
-use App\Http\Controllers\UserHierarchyController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TimeLogController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\NotificationController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UserHierarchyController;
 use App\Models\User;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Make login page the landing page for guests
@@ -24,6 +24,7 @@ Route::get('/', function () {
     if (Auth::check()) {
         return redirect()->route('dashboard');
     }
+
     return Inertia::render('Auth/Login', [
         'canResetPassword' => Route::has('password.request'),
         'canRegister' => Route::has('register'),
@@ -68,8 +69,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('leave', LeaveApplicationController::class)->only(['index', 'store', 'destroy'])->middleware(['can:apply for leave']);
     Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])->name('leave.update')->middleware(['can:manage leave applications']);
     Route::post('/leave/{leave_application}/upload-document', [LeaveApplicationController::class, 'uploadDocument'])
-    ->name('leave.uploadDocument')
-    ->middleware('can:apply for leave');
+        ->name('leave.uploadDocument')
+        ->middleware('can:apply for leave');
     Route::delete('/leave/{leave_application}/cancel', [LeaveApplicationController::class, 'cancel'])->name('leave.cancel')->middleware(['can:apply for leave']);
 
     // Leave calendar route
@@ -104,6 +105,7 @@ Route::get('/dev-login/{role}', function ($role) {
 
     $user = User::role($role)->firstOrFail();
     Auth::login($user);
+
     return redirect('/dashboard');
 })->name('dev.login');
 

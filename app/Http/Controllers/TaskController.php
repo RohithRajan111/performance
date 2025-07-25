@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Actions\Task\StoreTask;
 use App\Actions\Task\UpdateTaskStatus;
-use App\Models\Task;
 use App\Models\Project;
-use Illuminate\Http\Request;
+use App\Models\Task;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
@@ -39,7 +39,6 @@ class TaskController extends Controller
 
         return redirect()->back()->with('success', 'Task status updated.');
     }
-
 
     /**
      * This method is now only for handling full task updates (e.g., from an "Edit Task" form).

@@ -8,10 +8,9 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
@@ -34,13 +33,19 @@ class DashboardController extends Controller
         ];
 
         $hour = now()->hour;
-        $greetingMessage = 'Morning'; $greetingIcon = '🌤️';
-        if ($hour >= 12 && $hour < 17) { $greetingMessage = 'Afternoon'; $greetingIcon = '☀️'; }
-        elseif ($hour >= 17) { $greetingMessage = 'Evening'; $greetingIcon = '🌙'; }
+        $greetingMessage = 'Morning';
+        $greetingIcon = '🌤️';
+        if ($hour >= 12 && $hour < 17) {
+            $greetingMessage = 'Afternoon';
+            $greetingIcon = '☀️';
+        } elseif ($hour >= 17) {
+            $greetingMessage = 'Evening';
+            $greetingIcon = '🌙';
+        }
 
         // --- CALENDAR DATA (No changes needed here) ---
-        $leaveEvents = LeaveApplication::where('user_id', $user->id)->where('status', 'approved')->get()->map(fn($l) => ['id' => 'l'.$l->id, 'title' => 'Leave', 'start' => $l->start_date, 'end' => Carbon::parse($l->end_date)->addDay()->toDateString(), 'color' => '#EF4444']);
-        $noteEvents = CalendarNote::where('user_id', $user->id)->get()->map(fn($n) => ['id' => 'n'.$n->id, 'title' => $n->note, 'start' => $n->date, 'color' => '#FBBF24']);
+        $leaveEvents = LeaveApplication::where('user_id', $user->id)->where('status', 'approved')->get()->map(fn ($l) => ['id' => 'l'.$l->id, 'title' => 'Leave', 'start' => $l->start_date, 'end' => Carbon::parse($l->end_date)->addDay()->toDateString(), 'color' => '#EF4444']);
+        $noteEvents = CalendarNote::where('user_id', $user->id)->get()->map(fn ($n) => ['id' => 'n'.$n->id, 'title' => $n->note, 'start' => $n->date, 'color' => '#FBBF24']);
         $allCalendarEvents = (new Collection($leaveEvents))->merge($noteEvents);
 
         // --- **THE FIX IS HERE**: FETCHING PROJECTS AND TASKS ---
@@ -53,8 +58,7 @@ class DashboardController extends Controller
         if ($user->hasRole(['admin', 'project-manager'])) {
             // Admins and PMs see all active projects.
             $projects = Project::where('status', '!=', 'completed')->latest()->get();
-        }
-        elseif ($user->hasRole('team-lead')) {
+        } elseif ($user->hasRole('team-lead')) {
             // Team Leads see only the active projects they are members of.
             // This requires the members() relationship in your Project model.
             $projects = Project::where('status', '!=', 'completed')
@@ -71,7 +75,6 @@ class DashboardController extends Controller
             ->where('status', '!=', 'completed')
             ->orderBy('due_date', 'asc')
             ->get();
-
 
         // --- FINAL RENDER ---
         // Pass all the data, including the now-populated 'projects' and 'myTasks', to Vue.

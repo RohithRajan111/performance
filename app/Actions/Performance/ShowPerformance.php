@@ -1,4 +1,5 @@
 <?php
+
 // app/Actions/Performance/ShowPerformance.php
 
 namespace App\Actions\Performance;
@@ -14,7 +15,7 @@ class ShowPerformance
     public function handle(User $user): array
     {
         $tasks = Task::where('assigned_to_id', $user->id);
-        
+
         // Enhanced task statistics
         $taskStats = [
             'total' => $tasks->count(),
@@ -22,8 +23,8 @@ class ShowPerformance
             'in_progress' => (clone $tasks)->where('status', 'in_progress')->count(),
             'pending' => (clone $tasks)->where('status', 'pending')->count(),
         ];
-        
-        $taskStats['completion_rate'] = $taskStats['total'] > 0 ? 
+
+        $taskStats['completion_rate'] = $taskStats['total'] > 0 ?
             round(($taskStats['completed'] / $taskStats['total']) * 100, 1) : 0;
 
         // Get tasks with project info for Gantt chart
@@ -70,17 +71,17 @@ class ShowPerformance
         for ($i = 7; $i >= 0; $i--) {
             $weekStart = Carbon::now()->subWeeks($i)->startOfWeek(Carbon::MONDAY);
             $weekEnd = Carbon::now()->subWeeks($i)->endOfWeek(Carbon::SUNDAY);
-            
+
             $hours = TimeLog::where('user_id', $user->id)
                 ->whereBetween('work_date', [$weekStart->format('Y-m-d'), $weekEnd->format('Y-m-d')])
                 ->sum('hours_worked') ?? 0;
-                
+
             $weeklyHours->push([
-                'week' => "Week " . $weekStart->weekOfYear,
+                'week' => 'Week '.$weekStart->weekOfYear,
                 'hours' => (float) $hours,
                 'start_date' => $weekStart->format('Y-m-d'),
                 'end_date' => $weekEnd->format('Y-m-d'),
-                'date_range' => $weekStart->format('M j') . ' - ' . $weekEnd->format('M j'),
+                'date_range' => $weekStart->format('M j').' - '.$weekEnd->format('M j'),
                 'is_current_week' => $weekStart->isSameWeek(Carbon::now()),
             ]);
         }
@@ -92,7 +93,7 @@ class ShowPerformance
             $hours = TimeLog::where('user_id', $user->id)
                 ->whereDate('work_date', $date->format('Y-m-d'))
                 ->sum('hours_worked') ?? 0;
-                
+
             $dailyHours->push([
                 'date' => $date->format('Y-m-d'),
                 'day' => $date->format('M j'),
@@ -123,7 +124,7 @@ class ShowPerformance
                 ->whereMonth('work_date', $month->month)
                 ->whereYear('work_date', $month->year)
                 ->sum('hours_worked') ?? 0;
-                
+
             $monthlyHours->push([
                 'month' => $month->format('M Y'),
                 'hours' => (float) $hours,
@@ -152,16 +153,13 @@ class ShowPerformance
             ->get();
 
         $leaveStats = [
-            'total_days' => $approvedLeave->sum(fn ($leave) => 
-                Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1
+            'total_days' => $approvedLeave->sum(fn ($leave) => Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1
             ),
-            'current_year' => $approvedLeave->filter(fn ($leave) => 
-                Carbon::parse($leave->start_date)->year === Carbon::now()->year
-            )->sum(fn ($leave) => 
-                Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1
+            'current_year' => $approvedLeave->filter(fn ($leave) => Carbon::parse($leave->start_date)->year === Carbon::now()->year
+            )->sum(fn ($leave) => Carbon::parse($leave->start_date)->diffInDays(Carbon::parse($leave->end_date)) + 1
             ),
         ];
-        
+
         $leaveStats['remaining'] = max(0, 20 - $leaveStats['current_year']);
 
         // Recent leave applications

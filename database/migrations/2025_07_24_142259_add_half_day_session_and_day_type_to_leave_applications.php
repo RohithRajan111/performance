@@ -26,7 +26,7 @@ class AddHalfDaySessionAndDayTypeToLeaveApplications extends Migration
     public function down()
     {
         Schema::table('leave_applications', function (Blueprint $table) {
-            $table->dropColumn(['day_type', 'start_half_session','end_half_session','supporting_document_path']);
+            $table->dropColumn(['day_type', 'start_half_session', 'end_half_session', 'supporting_document_path']);
         });
     }
 }

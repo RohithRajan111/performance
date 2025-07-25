@@ -1,4 +1,5 @@
 <?php
+
 // app/Actions/Task/UpdateTaskStatus.php
 
 namespace App\Actions\Task;
@@ -11,7 +12,7 @@ class UpdateTaskStatus
 
     public function handle(Task $task, string $status)
     {
-        if (!in_array($status, self::VALID_STATUSES)) {
+        if (! in_array($status, self::VALID_STATUSES)) {
             throw new \InvalidArgumentException("Invalid status: {$status}");
         }
 

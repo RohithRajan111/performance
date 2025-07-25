@@ -17,7 +17,7 @@ class ProjectFactory extends Factory
     public function definition(): array
     {
         return [
-             'name' => 'Project ' . fake()->company(),
+            'name' => 'Project '.fake()->company(),
             'description' => fake()->paragraph(),
             'status' => fake()->randomElement(['pending', 'in-progress', 'on-hold']),
             'end_date' => fake()->dateTimeBetween('+1 month', '+6 months'),

@@ -14,9 +14,6 @@ class ProjectPolicy
      * This method runs before any other method in the policy.
      * If it returns true, the user is automatically authorized.
      * This is the perfect place for an admin/super-user check.
-     *
-     * @param \App\Models\User $user
-     * @return bool|null
      */
     public function before(User $user, string $ability): ?bool
     {

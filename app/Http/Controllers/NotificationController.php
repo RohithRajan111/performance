@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class NotificationController extends Controller
@@ -25,18 +24,21 @@ class NotificationController extends Controller
         if ($notification->read_at === null) {
             $notification->markAsRead();
         }
+
         return response()->json(['success' => true]);
     }
 
     public function markAllAsRead()
     {
         auth()->user()->unreadNotifications->markAsRead();
+
         return response()->json(['success' => true]);
     }
 
     public function getUnreadCount()
     {
         $count = auth()->user()->unreadNotifications()->count();
+
         return response()->json(['count' => $count]);
     }
 

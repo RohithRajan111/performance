@@ -57,7 +57,6 @@ class StoreLeave
             $leaveDays = $firstDayValue + $lastDayValue + $daysInBetween;
         }
 
-
         // ... Your other validation and checks ...
         if ($leaveDays > $user->getRemainingLeaveBalance()) {
             throw ValidationException::withMessages([
@@ -65,14 +64,12 @@ class StoreLeave
             ]);
         }
 
-
         // Check if file exists (assumes file key: 'supporting_document')
-    if (isset($data['supporting_document'])) {
-        $file = $data['supporting_document'];
-        $path = $file->store('leave_documents/' . auth()->id(), 'public');
-        $data['supporting_document_path'] = $path;
-    }
-
+        if (isset($data['supporting_document'])) {
+            $file = $data['supporting_document'];
+            $path = $file->store('leave_documents/'.auth()->id(), 'public');
+            $data['supporting_document_path'] = $path;
+        }
 
         $leaveApplication = LeaveApplication::create([
             'user_id' => $user->id,
