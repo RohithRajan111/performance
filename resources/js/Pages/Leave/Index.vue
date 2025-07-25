@@ -29,10 +29,9 @@ const leaveTypeDescriptions = {
     description: "Used for planned vacations and time away from work. Should be requested at least 7 days in advance.",
   },
   sick: {
-  label: "Sick Leave",
-  description: "For illness or medical appointments. Supporting documents can be uploaded during or after leave submission, even after approval.",
-},
-
+    label: "Sick Leave",
+    description: "For illness or medical appointments. Supporting documents can be uploaded during or after leave submission, even after approval.",
+  },
   personal: {
     label: "Personal Leave",
     description: "For personal matters such as family emergencies, errands, or short-term absences. Request at least 3 days in advance.",
@@ -373,58 +372,68 @@ const cancelLeave = (request) => {
       <div v-if="!canManage" class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <!-- Calendar -->
         <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-              <CalendarDaysIcon class="h-6 w-6 text-blue-500" />
-              Leave Calendar & Booking
-            </h3>
-          </div>
-          <p class="text-sm text-gray-500 mb-4">Click a date on the calendar to open the request form.</p>
-          <div class="border border-gray-200 rounded-lg overflow-hidden">
-            <FullCalendar :options="calendarOptions" />
-          </div>
-        </div>
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
+      <CalendarDaysIcon class="h-6 w-6 text-blue-500" />
+      Leave Calendar & Booking
+    </h3>
+  </div>
+
+  <div class="flex items-center justify-between mb-4">
+    <p class="text-sm text-gray-500">Click a date on the calendar to open the request form.</p>
+    <div class="bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-md px-3 py-1 text-sm font-semibold">
+      Remaining Leaves: <span class="ml-1">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</span>
+    </div>
+  </div>
+
+  <div class="border border-gray-200 rounded-lg overflow-hidden">
+    <FullCalendar :options="calendarOptions" />
+  </div>
+</div>
+
 
         <!-- Info Panels -->
-        <div class="lg:col-span-1 space-y-6">
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
-              <BriefcaseIcon class="h-6 w-6 text-gray-500" />
-              Remaining Leave Balance
-            </h3>
-            <p class="text-2xl font-bold text-gray-800">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</p>
-          </div>
+       <div>
 
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900 mb-3 flex items-center gap-2">
-              <CalendarDaysIcon class="h-6 w-6 text-indigo-500" />
-              About Leave Types
-            </h3>
-            <ul class="space-y-3">
-              <li v-for="(info, key) in leaveTypeDescriptions" :key="key" class="pl-1">
-                <div class="text-sm font-semibold text-gray-800">{{ info.label }}</div>
-                <div class="text-xs text-gray-600">{{ info.description }}</div>
-              </li>
-            </ul>
-          </div>
+          <div class="lg:col-span-1 space-y-6">
+  <!-- About Leave Types -->
+  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-h-[400px] overflow-y-auto">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <CalendarDaysIcon class="h-6 w-6 text-indigo-500" />
+      About Leave Types
+    </h3>
+    <ul class="space-y-4">
+      <li
+        v-for="(info, key) in leaveTypeDescriptions"
+        :key="key"
+        class="p-3 rounded-md border border-gray-100 hover:border-indigo-300 transition-colors cursor-default"
+      >
+        <div class="text-base font-semibold text-gray-800 mb-1">{{ info.label }}</div>
+        <div class="text-sm text-gray-600 leading-relaxed">{{ info.description }}</div>
+      </li>
+    </ul>
+  </div>
 
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
-              <SparklesIcon class="h-6 w-6 text-gray-500" />
-              Upcoming Time Off
-            </h3>
-            <ul v-if="upcomingEvents.length > 0" class="space-y-3">
-              <li v-for="event in upcomingEvents" :key="event.start" class="flex items-start gap-3">
-                <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full" :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
-                <div>
-                  <p class="text-sm font-medium text-gray-800">{{ event.title }}</p>
-                  <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to {{ event.end }}</span></p>
-                </div>
-              </li>
-            </ul>
-            <p v-else class="text-sm text-center text-gray-500 py-4">No upcoming holidays or approved leave.</p>
-          </div>
+  <!-- Upcoming Time Off (unchanged) -->
+  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+    <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
+      <SparklesIcon class="h-6 w-6 text-gray-500" />
+      Upcoming Time Off
+    </h3>
+    <ul v-if="upcomingEvents.length > 0" class="space-y-3">
+      <li v-for="event in upcomingEvents" :key="event.start" class="flex items-start gap-3">
+        <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full" :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
+        <div>
+          <p class="text-sm font-medium text-gray-800">{{ event.title }}</p>
+          <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to {{ event.end }}</span></p>
         </div>
+      </li>
+    </ul>
+    <p v-else class="text-sm text-center text-gray-500 py-4">No upcoming holidays or approved leave.</p>
+  </div>
+</div>
+
+</div>
       </div>
 
       <!-- Leave Requests Table -->
