@@ -3,103 +3,224 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 2. Attractive & Modern Org Chart Styles */
-
-/* Main container for the chart */
-.chart-container .boc-light {
+/* 2. Critical CSS - Org Chart Optimizations */
+@layer components {
+  /* Main container for the chart */
+  .chart-container .boc-light {
     background: transparent !important;
-}
+  }
 
-/* Base style for all employee node cards */
-.boc-isla .boc-node-rect {
+  /* Base style for all employee node cards */
+  .boc-isla .boc-node-rect {
     fill: #ffffff;
     stroke: #e5e7eb;
     stroke-width: 1px;
     rx: 16px;
     transition: all 0.3s ease;
-}
+  }
 
-/* Add an interactive hover effect */
-.boc-node:hover .boc-node-rect {
+  /* Interactive hover effects */
+  .boc-node:hover .boc-node-rect {
     stroke: #6366f1;
     stroke-width: 2px;
     transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
-}
+    filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.1));
+  }
 
-/* Style for the node that has the 'highlighted-user' class */
-.boc-node.highlighted-user .boc-node-rect {
+  /* Highlighted user styling */
+  .boc-node.highlighted-user .boc-node-rect {
     fill: rgba(255, 255, 255, 0.6);
     stroke: rgba(255, 255, 255, 0.3);
     stroke-width: 2px;
-    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
-}
+  }
 
-/* Style for nodes based on their level in the hierarchy */
-/* Level 0 - The Top Manager in the view */
-.boc-node-level-0 .boc-node-rect {
+  /* Level-based node styling */
+  .boc-node-level-0 .boc-node-rect {
     fill: #f5f3ff;
     stroke: #818cf8;
-}
+  }
 
-/* --- THE CHANGES ARE HERE --- */
-
-/* 1. Increase the size of the user's profile picture/avatar */
-.boc-isla .boc-img-0 {
-    width: 80px; /* CHANGED from default */
-    height: 80px; /* CHANGED from default */
+  /* User profile images with optimized sizing */
+  .boc-isla .boc-img-0 {
+    width: 80px;
+    height: 80px;
     border-radius: 9999px;
     border: 4px solid white;
     box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
+  }
 
-/* 2. Adjust the node text fields to make room for the larger image */
-/* Name Field */
-.boc-isla .boc-field-0 {
+  /* Text field positioning optimizations */
+  .boc-isla .boc-field-0 {
     font-size: 16px;
     font-weight: 600;
     fill: #1f2937;
-    /* Move text down to accommodate the larger image */
     transform: translateY(15px);
-}
-/* Title Field */
-.boc-isla .boc-field-1 {
+  }
+
+  .boc-isla .boc-field-1 {
     font-size: 14px;
     fill: #6b7280;
-    /* Move text down to accommodate the larger image */
     transform: translateY(15px);
-}
+  }
 
-/* --- END OF CHANGES --- */
-
-/* Style for the connecting lines */
-.boc-link {
+  /* Connecting lines with animation */
+  .boc-link {
     stroke: #d1d5db;
     stroke-width: 1.5px;
     stroke-dasharray: 4;
     animation: dash-flow 2s linear infinite;
-}
+  }
 
-/* Animation for the dashed lines */
-@keyframes dash-flow {
-    from {
-        stroke-dashoffset: 8;
-    }
-    to {
-        stroke-dashoffset: 0;
-    }
-}
-
-/* Style for the expand/collapse button */
-.boc-exp-coll {
+  /* Expand/collapse button styling */
+  .boc-exp-coll {
     stroke: #9ca3b0;
     stroke-width: 2px;
     fill: #f9fafb;
     transition: all 0.3s ease;
-}
-.boc-exp-coll:hover {
+  }
+
+  .boc-exp-coll:hover {
     stroke: #4f46e5;
     transform: scale(1.1);
+  }
+}
+
+/* 3. Animation definitions */
+@layer utilities {
+  @keyframes dash-flow {
+    from {
+      stroke-dashoffset: 8;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes float {
+    0% {
+      transform: translateY(0) rotate(0deg);
+      opacity: 0.1;
+    }
+    50% {
+      opacity: 0.2;
+    }
+    100% {
+      transform: translateY(-1000px) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-float {
+    animation: float linear infinite;
+  }
+
+  /* Performance optimizations */
+  .will-change-transform {
+    will-change: transform;
+  }
+
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* Smooth transitions for better UX */
+  .transition-colors-fast {
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+  }
+
+  .transition-transform-fast {
+    transition: transform 0.15s ease-in-out;
+  }
+}
+
+/* 4. Critical component styles */
+@layer components {
+  /* Loading spinner optimization */
+  .spinner {
+    @apply inline-block animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+
+  /* Card component optimizations */
+  .card {
+    @apply bg-white rounded-lg border border-gray-200 shadow-sm transition-shadow duration-200;
+  }
+
+  .card:hover {
+    @apply shadow-md;
+  }
+
+  /* Button component optimizations */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 transition-colors duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+
+  /* Navigation optimizations */
+  .nav-link {
+    @apply flex items-center w-full px-3 py-2 rounded-md text-sm font-medium text-gray-600 transition-colors-fast hover:bg-gray-100 hover:text-gray-900;
+  }
+
+  .nav-link.active {
+    @apply bg-gray-100 text-gray-900;
+  }
+
+  /* Form optimizations */
+  .form-input {
+    @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm transition-colors duration-150;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Modal optimizations */
+  .modal-overlay {
+    @apply fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity;
+  }
+
+  .modal-content {
+    @apply relative bg-white rounded-lg shadow-xl transition-all;
+  }
+}
+
+/* 5. Performance-critical utilities */
+@layer utilities {
+  /* Reduce layout shifts */
+  .aspect-ratio-1 {
+    aspect-ratio: 1 / 1;
+  }
+
+  .aspect-ratio-16-9 {
+    aspect-ratio: 16 / 9;
+  }
+
+  .aspect-ratio-4-3 {
+    aspect-ratio: 4 / 3;
+  }
+
+  /* Optimized text rendering */
+  .text-render-optimized {
+    text-rendering: optimizeSpeed;
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Hardware acceleration for animations */
+  .hw-accelerated {
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+  }
+
+  /* Container query support */
+  .container-queries {
+    container-type: inline-size;
+  }
 }
