@@ -372,68 +372,65 @@ const cancelLeave = (request) => {
       <div v-if="!canManage" class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <!-- Calendar -->
         <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-  <div class="flex items-center justify-between mb-4">
-    <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-      <CalendarDaysIcon class="h-6 w-6 text-blue-500" />
-      Leave Calendar & Booking
-    </h3>
-  </div>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
+              <CalendarDaysIcon class="h-6 w-6 text-blue-500" />
+              Leave Calendar & Booking
+            </h3>
+          </div>
 
-  <div class="flex items-center justify-between mb-4">
-    <p class="text-sm text-gray-500">Click a date on the calendar to open the request form.</p>
-    <div class="bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-md px-3 py-1 text-sm font-semibold">
-      Remaining Leaves: <span class="ml-1">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</span>
-    </div>
-  </div>
+          <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-gray-500">Click a date on the calendar to open the request form.</p>
+            <div class="bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-md px-3 py-1 text-sm font-semibold">
+              Remaining Leaves: <span class="ml-1">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</span>
+            </div>
+          </div>
 
-  <div class="border border-gray-200 rounded-lg overflow-hidden">
-    <FullCalendar :options="calendarOptions" />
-  </div>
-</div>
-
+          <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <FullCalendar :options="calendarOptions" />
+          </div>
+        </div>
 
         <!-- Info Panels -->
-       <div>
-
-          <div class="lg:col-span-1 space-y-6">
-  <!-- About Leave Types -->
-  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-h-[400px] overflow-y-auto">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-      <CalendarDaysIcon class="h-6 w-6 text-indigo-500" />
-      About Leave Types
-    </h3>
-    <ul class="space-y-4">
-      <li
-        v-for="(info, key) in leaveTypeDescriptions"
-        :key="key"
-        class="p-3 rounded-md border border-gray-100 hover:border-indigo-300 transition-colors cursor-default"
-      >
-        <div class="text-base font-semibold text-gray-800 mb-1">{{ info.label }}</div>
-        <div class="text-sm text-gray-600 leading-relaxed">{{ info.description }}</div>
-      </li>
-    </ul>
-  </div>
-
-  <!-- Upcoming Time Off (unchanged) -->
-  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-    <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
-      <SparklesIcon class="h-6 w-6 text-gray-500" />
-      Upcoming Time Off
-    </h3>
-    <ul v-if="upcomingEvents.length > 0" class="space-y-3">
-      <li v-for="event in upcomingEvents" :key="event.start" class="flex items-start gap-3">
-        <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full" :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
         <div>
-          <p class="text-sm font-medium text-gray-800">{{ event.title }}</p>
-          <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to {{ event.end }}</span></p>
-        </div>
-      </li>
-    </ul>
-    <p v-else class="text-sm text-center text-gray-500 py-4">No upcoming holidays or approved leave.</p>
-  </div>
-</div>
+          <div class="lg:col-span-1 space-y-6">
+            <!-- About Leave Types -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-h-[400px] overflow-y-auto">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <CalendarDaysIcon class="h-6 w-6 text-indigo-500" />
+                About Leave Types
+              </h3>
+              <ul class="space-y-4">
+                <li
+                  v-for="(info, key) in leaveTypeDescriptions"
+                  :key="key"
+                  class="p-3 rounded-md border border-gray-100 hover:border-indigo-300 transition-colors cursor-default"
+                >
+                  <div class="text-base font-semibold text-gray-800 mb-1">{{ info.label }}</div>
+                  <div class="text-sm text-gray-600 leading-relaxed">{{ info.description }}</div>
+                </li>
+              </ul>
+            </div>
 
-</div>
+            <!-- Upcoming Time Off -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
+                <SparklesIcon class="h-6 w-6 text-gray-500" />
+                Upcoming Time Off
+              </h3>
+              <ul v-if="upcomingEvents.length > 0" class="space-y-3">
+                <li v-for="event in upcomingEvents" :key="event.start" class="flex items-start gap-3">
+                  <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full" :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
+                  <div>
+                    <p class="text-sm font-medium text-gray-800">{{ event.title }}</p>
+                    <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to {{ event.end }}</span></p>
+                  </div>
+                </li>
+              </ul>
+              <p v-else class="text-sm text-center text-gray-500 py-4">No upcoming holidays or approved leave.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Leave Requests Table -->
@@ -482,33 +479,42 @@ const cancelLeave = (request) => {
                     {{ request.status }}
                   </span>
                 </td>
-                <td class="px-6 py-4 text-center whitespace-nowrap">
-                  <a
-                    v-if="request.supporting_document_path"
-                    :href="`/storage/${request.supporting_document_path}`"
-                    target="_blank"
-                    class="text-indigo-600 hover:underline flex items-center justify-center gap-1"
-                    title="View supporting document"
-                  >
-                    <DocumentIcon class="h-5 w-5" /> View
-                  </a>
-                  <span v-else class="text-gray-400 text-xs italic">—</span>
+                <td class="px-6 py-4 text-center whitespace-nowrap space-y-1">
+                  <div>
+                    <a
+                      v-if="request.supporting_document_path"
+                      :href="`/storage/${request.supporting_document_path}`"
+                      target="_blank"
+                      class="text-indigo-600 hover:underline flex items-center justify-center gap-1"
+                      title="View supporting document"
+                    >
+                      <DocumentIcon class="h-5 w-5" /> View
+                    </a>
+                    <span v-else class="text-gray-400 text-xs italic">—</span>
+                  </div>
+
+                  <!-- Upload / Replace button for sick leave (pending or approved) -->
+                  <div v-if="!props.canManage && ['pending', 'approved'].includes(request.status) && request.leave_type === 'sick'">
+                    <button @click="openUploadModal(request.id)" class="text-indigo-600 hover:underline text-sm">
+                      {{ request.supporting_document_path ? 'Replace Document' : 'Upload Document' }}
+                    </button>
+                  </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right">
                   <div v-if="props.canManage && request.status === 'pending'" class="flex justify-end gap-2">
-                    <button @click="updateStatus(request, 'approved')" class="p-1.5 rounded-md hover:bg-green-100 text-green-600" title="Approve"><CheckBadgeIcon class="h-5 w-5"/></button>
-                    <button @click="updateStatus(request, 'rejected')" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Reject"><XCircleIcon class="h-5 w-5"/></button>
+                    <button @click="updateStatus(request, 'approved')" class="p-1.5 rounded-md hover:bg-green-100 text-green-600" title="Approve">
+                      <CheckBadgeIcon class="h-5 w-5"/>
+                    </button>
+                    <button @click="updateStatus(request, 'rejected')" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Reject">
+                      <XCircleIcon class="h-5 w-5"/>
+                    </button>
                   </div>
                   <div v-else-if="!props.canManage && request.status === 'pending'">
-                    <button @click="cancelLeave(request)" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Cancel Request"><TrashIcon class="h-5 w-5" /></button>
+                    <button @click="cancelLeave(request)" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Cancel Request">
+                      <TrashIcon class="h-5 w-5" />
+                    </button>
                   </div>
-                 <div v-else-if="!props.canManage && !request.supporting_document_path">
-  <!-- Show Upload Document button only if no document uploaded yet -->
-  <button @click="openUploadModal(request.id)" class="text-indigo-600 hover:underline text-sm">
-    Upload Document
-  </button>
-</div>
-
+                  <!-- Removed upload button from here -->
                 </td>
               </tr>
             </tbody>

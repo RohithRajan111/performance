@@ -11,84 +11,92 @@ use Illuminate\Validation\ValidationException;
 class StoreLeave
 {
     public function handle(array $data): LeaveApplication
-    {
-        // Remember to REMOVE the dd($data) after you've seen the output!
+{
+    \Log::info('Received leave request data', $data);
 
-        $user = Auth::user();
+    $user = Auth::user();
 
-        $start = Carbon::parse($data['start_date']);
-        $end = Carbon::parse($data['end_date']);
-        $startSession = $data['start_half_session'] ?? null;
-        $endSession = $data['end_half_session'] ?? null;
+    $start = Carbon::parse($data['start_date']);
+    $end = Carbon::parse($data['end_date']);
 
-        if ($start->gt($end)) {
-            throw ValidationException::withMessages(['start_date' => ['Start date must be before or equal to the end date.']]);
-        }
+    // Normalize half-day sessions to null if empty string or empty
+    $startSession = $data['start_half_session'] ?? null;
+    $endSession = $data['end_half_session'] ?? null;
+    if ($startSession === '') $startSession = null;
+    if ($endSession === '') $endSession = null;
 
-        // =================================================================
-        // --- FINAL, EXPLICIT & BULLETPROOF LEAVE DAYS CALCULATION ---
-        // =================================================================
-        $leaveDays = 0;
-        $isSingleDay = $start->isSameDay($end);
+    \Log::info('Normalized half sessions', compact('startSession', 'endSession'));
 
-        if ($isSingleDay) {
-            $isFullDay = ($startSession === 'morning' && $endSession === 'afternoon');
-            $isHalfDay =
-                ($startSession === 'morning' && empty($endSession)) ||
-                (empty($startSession) && $endSession === 'afternoon') ||
-                ($startSession === 'morning' && $endSession === 'morning') || // Cover all edge cases
-                ($startSession === 'afternoon' && $endSession === 'afternoon');
-
-            if ($isFullDay) {
-                // Case 1: Explicitly a full day (e.g., Morning to Afternoon)
-                $leaveDays = 1.0;
-            } elseif ($isHalfDay) {
-                // Case 2: Explicitly a half day (e.g., only Morning is selected)
-                $leaveDays = 0.5;
-            } else {
-                // Case 3: Default to a full day if no sessions or an invalid combo is provided.
-                $leaveDays = 1.0;
-            }
-        } else {
-            // Multi-day logic (this is generally correct)
-            $firstDayValue = ($startSession === 'afternoon') ? 0.5 : 1.0;
-            $lastDayValue = ($endSession === 'morning') ? 0.5 : 1.0;
-            $daysInBetween = max(0, $start->diffInDays($end) - 1);
-            $leaveDays = $firstDayValue + $lastDayValue + $daysInBetween;
-        }
-
-        // ... Your other validation and checks ...
-        if ($leaveDays > $user->getRemainingLeaveBalance()) {
-            throw ValidationException::withMessages([
-                'leave_days' => ["You do not have enough leave balance. Remaining: {$user->getRemainingLeaveBalance()} days."],
-            ]);
-        }
-
-        // Check if file exists (assumes file key: 'supporting_document')
-        if (isset($data['supporting_document'])) {
-            $file = $data['supporting_document'];
-            $path = $file->store('leave_documents/'.auth()->id(), 'public');
-            $data['supporting_document_path'] = $path;
-        }
-
-        $leaveApplication = LeaveApplication::create([
-            'user_id' => $user->id,
-            'start_date' => $start,
-            'end_date' => $end,
-            'start_half_session' => $startSession,
-            'end_half_session' => $endSession,
-            'reason' => $data['reason'],
-            'leave_type' => $data['leave_type'],
-            'leave_days' => $leaveDays,
-            'salary_deduction_days' => 0,
-            'status' => 'pending',
-            'supporting_document_path' => $data['supporting_document_path'] ?? null,
+    if ($start->gt($end)) {
+        throw ValidationException::withMessages([
+            'start_date' => ['Start date must be before or equal to the end date.']
         ]);
-
-        $this->sendNotifications($leaveApplication);
-
-        return $leaveApplication;
     }
+
+    // --- Leave days calculation ---
+    $leaveDays = 0;
+    $isSingleDay = $start->isSameDay($end);
+
+    if ($isSingleDay) {
+        $isFullDay = ($startSession === 'morning' && $endSession === 'afternoon');
+
+        $isHalfDay =
+            ($startSession === 'morning' && $endSession === null) ||
+            ($startSession === null && $endSession === 'afternoon') ||
+            ($startSession === 'morning' && $endSession === 'morning') ||
+            ($startSession === 'afternoon' && $endSession === 'afternoon') ||
+            ($startSession === 'afternoon' && $endSession === null); // <-- Added missing half-day case
+
+        if ($isFullDay) {
+            $leaveDays = 1.0;
+        } elseif ($isHalfDay) {
+            $leaveDays = 0.5;
+        } else {
+            $leaveDays = 1.0; // fallback full day
+        }
+    } else {
+        // Multi-day leave calculation
+        $firstDayValue = ($startSession === 'afternoon') ? 0.5 : 1.0;
+        $lastDayValue = ($endSession === 'morning') ? 0.5 : 1.0;
+        $daysInBetween = max(0, $start->diffInDays($end) - 1);
+        $leaveDays = $firstDayValue + $lastDayValue + $daysInBetween;
+    }
+
+    $leaveDays = (float) $leaveDays; // cast to float explicitly
+
+    // Validate leave balance
+    if ($leaveDays > $user->getRemainingLeaveBalance()) {
+        throw ValidationException::withMessages([
+            'leave_days' => ["You do not have enough leave balance. Remaining: {$user->getRemainingLeaveBalance()} days."],
+        ]);
+    }
+
+    // Handle supporting document upload
+    if (isset($data['supporting_document'])) {
+        $file = $data['supporting_document'];
+        $path = $file->store('leave_documents/' . $user->id, 'public');
+        $data['supporting_document_path'] = $path;
+    }
+
+    // Create leave application with all data
+    $leaveApplication = LeaveApplication::create([
+        'user_id' => $user->id,
+        'start_date' => $start,
+        'end_date' => $end,
+        'start_half_session' => $startSession,
+        'end_half_session' => $endSession,
+        'reason' => $data['reason'],
+        'leave_type' => $data['leave_type'],
+        'leave_days' => $leaveDays,
+        'salary_deduction_days' => 0,
+        'status' => 'pending',
+        'supporting_document_path' => $data['supporting_document_path'] ?? null,
+    ]);
+
+    $this->sendNotifications($leaveApplication);
+
+    return $leaveApplication;
+}
 
     private function sendNotifications(LeaveApplication $leaveApplication): void
     {
