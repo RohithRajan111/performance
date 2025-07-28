@@ -22,9 +22,6 @@ class LeaveApplication extends Model
         'start_half_session',
         'end_half_session',
         'leave_days',
-        'approved_by',
-        'approved_at',
-        'rejection_reason',
     ];
 
     protected $casts = [

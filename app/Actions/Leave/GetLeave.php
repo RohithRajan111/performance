@@ -58,7 +58,13 @@ class GetLeave
 
         if ($user->can('manage leave applications')) {
             $requests = LeaveApplication::with(['user:id,name'])
-                ->orderByRaw("FIELD(status, 'pending', 'approved', 'rejected')")
+                ->orderByRaw("CASE status
+    WHEN 'pending' THEN 1
+    WHEN 'approved' THEN 2
+    WHEN 'rejected' THEN 3
+    ELSE 4
+END")
+
                 ->latest()
                 ->get();
         } else {
@@ -68,16 +74,13 @@ class GetLeave
         }
 
         $highlighted = $requests->filter(fn ($request) => in_array($request->status, ['pending', 'approved']))
-    ->map(fn ($request) => [
-        'start' => $request->start_date->toDateString(),
-        'end' => $request->end_date ? $request->end_date->toDateString() : null,
-        'start_half_session' => $request->start_half_session,
-        'end_half_session' => $request->end_half_session,
-        'title' => ucfirst($request->leave_type) . ' Leave',
-        'class' => $request->status,
-        'color_category' => $this->getLeaveColorCategory($request),
-    ])->values()->all();
-
+            ->map(fn ($request) => [
+                'start' => $request->start_date->toDateString(),
+                'end' => $request->end_date ? $request->end_date->toDateString() : null,
+                'title' => ucfirst($request->leave_type) . ' Leave',
+                'class' => $request->status,
+                'color_category' => $this->getLeaveColorCategory($request),
+            ])->values()->all();
 
         return [
             'leaveRequests' => $requests,

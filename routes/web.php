@@ -4,6 +4,7 @@ use App\Http\Controllers\LeaveApplicationController;
 use App\Http\Controllers\PerformanceReportController;
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeaveCalendarController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\RoleController;
@@ -70,7 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/leave/{leave_application}/cancel', [LeaveApplicationController::class, 'cancel'])->name('leave.cancel')->middleware(['can:apply for leave']);
 
     // Leave calendar route
-    Route::get('/leave-calendar', [LeaveApplicationController::class, 'calendar'])->name('leaves.calendar');
+    Route::get('/leave-calendar', [LeaveCalendarController::class, 'index'])->name('leaves.calendar');
 
     // Time logging routes
     Route::resource('hours', TimeLogController::class)->only(['index', 'store']);

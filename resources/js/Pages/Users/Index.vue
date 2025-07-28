@@ -181,12 +181,18 @@ function handleImageUpload(e) {
                                     </td>
                                     <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600 capitalize">{{ user.roles[0]?.name.replace('-', ' ') || 'N/A' }}</td>
                                     <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600">{{ new Date(user.created_at).toLocaleDateString() }}</td>
+                                    <td class="px-6 py-4 text-right text-sm font-medium">
+                                        <Link :href="route('performance.show', user.id)" class="text-indigo-600 hover:text-indigo-900">
+                                            View Performance
+                                        </Link>
+                                        </td>
                                     <td class="whitespace-nowrap py-4 px-6 text-right text-sm font-medium">
                                         <div class="flex items-center justify-end space-x-4">
                                             <button @click="openEditModal(user)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
                                             <button @click="deleteUser(user.id)" class="text-red-600 hover:text-red-900">Delete</button>
                                         </div>
                                     </td>
+                                    
                                 </tr>
                             </tbody>
                         </table>

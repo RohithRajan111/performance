@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Storage;
@@ -172,6 +173,10 @@ class User extends Authenticatable
     public function childrenRecursive()
     {
         return $this->children()->with('childrenRecursive');
+    }
+    public function descendants(): HasMany
+    {
+        return $this->children()->with('descendants');
     }
 
     /**
@@ -362,4 +367,5 @@ class User extends Authenticatable
             }
         );
     }
+    
 }

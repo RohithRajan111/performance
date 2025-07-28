@@ -17,5 +17,14 @@
     </head>
     <body class="font-sans antialiased">
         @inertia
+
+        <!--
+        ======================================================================
+        Load jQuery and OrgChart plugin globally using reliable CDNs.
+        Removing integrity hashes for local development simplicity.
+        ======================================================================
+        -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/orgchart/3.1.3/js/jquery.orgchart.min.js"></script>
     </body>
 </html>

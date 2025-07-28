@@ -17,4 +17,14 @@ export default defineConfig({
             },
         }),
     ],
+    // ADD THIS SECTION to treat jQuery as an external dependency
+    build: {
+        rollupOptions: {
+            external: ['jquery'],
+        },
+    },
+    // This can sometimes help Vite resolve external dependencies during dev
+    optimizeDeps: {
+        exclude: ['jquery']
+    }
 });
