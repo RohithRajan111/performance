@@ -1,21 +1,39 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import axios from 'axios';
 
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-import Dropdown from '@/Components/Dropdown.vue';
-import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue';
+// Lazy load components for better performance
+const ApplicationLogo = shallowRef(null);
+const Dropdown = shallowRef(null);
+const DropdownLink = shallowRef(null);
+const NavLink = shallowRef(null);
 
-// --- NOTIFICATION LOGIC (YOURS, UNCHANGED) ---
+// Load components asynchronously
+onMounted(async () => {
+    const [logoModule, dropdownModule, dropdownLinkModule, navLinkModule] = await Promise.all([
+        import('@/Components/ApplicationLogo.vue'),
+        import('@/Components/Dropdown.vue'),
+        import('@/Components/DropdownLink.vue'),
+        import('@/Components/NavLink.vue')
+    ]);
+    
+    ApplicationLogo.value = logoModule.default;
+    Dropdown.value = dropdownModule.default;
+    DropdownLink.value = dropdownLinkModule.default;
+    NavLink.value = navLinkModule.default;
+});
+
+// --- NOTIFICATION LOGIC (OPTIMIZED) ---
 const showingNotificationDropdown = ref(false);
 const unreadNotificationCount = ref(0);
 const notifications = ref([]);
 const loading = ref(false);
+let notificationInterval = null;
 
 const fetchNotifications = async () => {
-    if (!usePage().props.auth.user) return;
+    if (!usePage().props.auth.user || loading.value) return;
+    
     try {
         const [countResponse, notificationsResponse] = await Promise.all([
             axios.get(route('notifications.unread-count')),
@@ -23,13 +41,21 @@ const fetchNotifications = async () => {
         ]);
         unreadNotificationCount.value = countResponse.data.count;
         notifications.value = notificationsResponse.data.data;
-    } catch (error) { console.error('Error fetching notifications:', error); }
+    } catch (error) { 
+        console.error('Error fetching notifications:', error); 
+    }
 };
 
-const handleNotificationClick = (notification) => {
-    axios.post(route('notifications.read', notification.id));
-    if (notification.data.url) { router.visit(notification.data.url); }
-    closeNotificationDropdown();
+const handleNotificationClick = async (notification) => {
+    try {
+        await axios.post(route('notifications.read', notification.id));
+        if (notification.data.url) { 
+            router.visit(notification.data.url); 
+        }
+        closeNotificationDropdown();
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+    }
 };
 
 const markAllAsRead = async () => {
@@ -39,44 +65,122 @@ const markAllAsRead = async () => {
         await axios.post(route('notifications.mark-all-read'));
         await fetchNotifications();
         showingNotificationDropdown.value = false;
-    } catch (error) { console.error('Error marking all as read:', error); }
-    finally { loading.value = false; }
+    } catch (error) { 
+        console.error('Error marking all as read:', error); 
+    } finally { 
+        loading.value = false; 
+    }
 };
 
 const toggleNotificationDropdown = () => {
     showingNotificationDropdown.value = !showingNotificationDropdown.value;
-    if (showingNotificationDropdown.value) { fetchNotifications(); }
+    if (showingNotificationDropdown.value) { 
+        fetchNotifications(); 
+    }
 };
 
-const closeNotificationDropdown = () => { showingNotificationDropdown.value = false; };
+const closeNotificationDropdown = () => { 
+    showingNotificationDropdown.value = false; 
+};
 
 const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(dateString).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
 };
 
 const getNotificationIcon = (type) => {
-    switch (type) {
-        case 'leave_request': return '📝';
-        case 'leave_approved': return '✅';
-        case 'leave_rejected': return '❌';
-        default: return '📢';
-    }
+    const iconMap = {
+        'leave_request': '📝',
+        'leave_approved': '✅',
+        'leave_rejected': '❌'
+    };
+    return iconMap[type] || '📢';
 };
 
-onMounted(() => {
-    if (usePage().props.auth.user) {
-        fetchNotifications();
-        setInterval(fetchNotifications, 30000);
-    }
-});
-
-// --- ORGNICE LAYOUT LOGIC ---
+// --- OPTIMIZED LAYOUT LOGIC ---
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 const userDesignation = computed(() => user.value?.designation || 'Employee');
 const showingSidebar = ref(false);
 
-// --- NEW SVG ICONS TO MATCH THE ORGNICE THEME ---
+// Memoized navigation items for better performance
+const navigationItems = computed(() => {
+    if (!user.value?.permissions) return [];
+    
+    const items = [
+        {
+            name: 'Dashboard',
+            route: 'dashboard',
+            active: route().current('dashboard'),
+            show: true,
+            icon: 'Dashboard'
+        },
+        {
+            name: 'Leave Calendar',
+            route: 'leaves.calendar',
+            active: route().current('leaves.calendar'),
+            show: user.value.permissions.includes('manage leave applications'),
+            icon: 'Leave Calendar'
+        },
+        {
+            name: 'Manage Roles',
+            route: 'roles.index',
+            active: route().current('roles.index'),
+            show: user.value.permissions.includes('manage roles'),
+            icon: 'Manage Roles'
+        },
+        {
+            name: 'Projects',
+            route: 'projects.index',
+            active: route().current('projects.*'),
+            show: user.value.permissions.includes('assign projects') || user.value.permissions.includes('view all projects progress'),
+            icon: 'Projects'
+        },
+        {
+            name: 'Apply for Leave',
+            route: 'leave.index',
+            active: route().current('leave.*'),
+            show: user.value.permissions.includes('apply for leave'),
+            icon: 'Apply for Leave'
+        },
+        {
+            name: 'Working Hours',
+            route: 'hours.index',
+            active: route().current('hours.index'),
+            show: true,
+            icon: 'Working Hours'
+        },
+        {
+            name: 'Manage Users',
+            route: 'users.index',
+            active: route().current('users.index'),
+            show: user.value.permissions.includes('manage employees'),
+            icon: 'Manage Users'
+        },
+        {
+            name: 'Manage Teams',
+            route: 'teams.index',
+            active: route().current('teams.index'),
+            show: user.value.permissions.includes('manage employees'),
+            icon: 'Manage Teams'
+        },
+        {
+            name: 'Company Hierarchy',
+            route: 'company.hierarchy',
+            active: route().current('company.hierarchy'),
+            show: true,
+            icon: 'Company Hierarchy'
+        }
+    ];
+    
+    return items.filter(item => item.show);
+});
+
+// --- OPTIMIZED SVG ICONS ---
 const icons = {
     Dashboard: `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>`,
     'Leave Calendar': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
@@ -88,6 +192,21 @@ const icons = {
     'Manage Teams': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>`,
     'Company Hierarchy': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>`,
 };
+
+// Lifecycle management
+onMounted(() => {
+    if (user.value) {
+        fetchNotifications();
+        // Use more conservative polling interval
+        notificationInterval = setInterval(fetchNotifications, 60000); // 1 minute instead of 30 seconds
+    }
+});
+
+onUnmounted(() => {
+    if (notificationInterval) {
+        clearInterval(notificationInterval);
+    }
+});
 </script>
 
 <template>
@@ -97,47 +216,25 @@ const icons = {
             <div class="flex flex-grow flex-col overflow-y-auto border-r border-slate-200 bg-white pt-5">
                 <div class="flex flex-shrink-0 items-center px-4 space-x-2">
                     <Link :href="route('dashboard')">
-                        <ApplicationLogo class="block h-8 w-auto text-slate-800" />
+                        <component :is="ApplicationLogo" v-if="ApplicationLogo" class="block h-8 w-auto text-slate-800" />
                     </Link>
                     <span class="text-xl font-bold text-slate-800">WorkSphere</span>
                 </div>
-                <nav v-if="user && user.permissions" class="mt-8 flex-1 space-y-1 px-3 pb-4">
-                    <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                        <span v-html="icons['Dashboard']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('dashboard') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Dashboard
-                    </NavLink>
-                    <NavLink v-if="user.permissions.includes('manage leave applications')" :href="route('leaves.calendar')" :active="route().current('leaves.calendar')">
-                        <span v-html="icons['Leave Calendar']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('leaves.calendar') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Leave Calendar
-                    </NavLink>
-                    <NavLink v-if="user.permissions.includes('manage roles')" :href="route('roles.index')" :active="route().current('roles.index')">
-                        <span v-html="icons['Manage Roles']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('roles.index') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Manage Roles
-                    </NavLink>
-                    <NavLink v-if="user.permissions.includes('assign projects') || user.permissions.includes('view all projects progress')" :href="route('projects.index')" :active="route().current('projects.*')">
-                        <span v-html="icons['Projects']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('projects.*') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Projects
-                    </NavLink>
-                    <NavLink v-if="user.permissions.includes('apply for leave')" :href="route('leave.index')" :active="route().current('leave.*')">
-                        <span v-html="icons['Apply for Leave']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('leave.*') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Apply for Leave
-                    </NavLink>
-                    <NavLink :href="route('hours.index')" :active="route().current('hours.index')">
-                        <span v-html="icons['Working Hours']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('hours.index') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Working Hours
-                    </NavLink>
-                    <NavLink v-if="user.permissions.includes('manage employees')" :href="route('users.index')" :active="route().current('users.index')">
-                        <span v-html="icons['Manage Users']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('users.index') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Manage Users
-                    </NavLink>
-                    <NavLink v-if="user.permissions.includes('manage employees')" :href="route('teams.index')" :active="route().current('teams.index')">
-                        <span v-html="icons['Manage Teams']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('teams.index') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Manage Teams
-                    </NavLink>
-                    <NavLink :href="route('company.hierarchy')" :active="route().current('company.hierarchy')">
-                        <span v-html="icons['Company Hierarchy']" class="mr-3 flex-shrink-0 h-6 w-6" :class="[route().current('company.hierarchy') ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"></span>
-                        Company Hierarchy
-                    </NavLink>
+                <nav v-if="user && user.permissions && NavLink" class="mt-8 flex-1 space-y-1 px-3 pb-4">
+                    <component 
+                        :is="NavLink" 
+                        v-for="item in navigationItems" 
+                        :key="item.name"
+                        :href="route(item.route)" 
+                        :active="item.active"
+                    >
+                        <span 
+                            v-html="icons[item.icon]" 
+                            class="mr-3 flex-shrink-0 h-6 w-6" 
+                            :class="[item.active ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"
+                        ></span>
+                        {{ item.name }}
+                    </component>
                 </nav>
             </div>
         </div>
@@ -155,13 +252,69 @@ const icons = {
                         <slot name="header" />
                     </div>
                     <div class="flex flex-1 items-center justify-end space-x-4">
-                        <template v-if="user">
+                        <template v-if="user && Dropdown">
                             <!-- Notification Dropdown -->
                             <div class="relative">
-                                <!-- ... notification button and dropdown content ... -->
+                                <button
+                                    @click="toggleNotificationDropdown"
+                                    class="relative inline-flex items-center p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                                >
+                                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                    <span v-if="unreadNotificationCount > 0" class="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                                        {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+                                    </span>
+                                </button>
+                                
+                                <!-- Notification dropdown content -->
+                                <div 
+                                    v-if="showingNotificationDropdown" 
+                                    @click="closeNotificationDropdown"
+                                    class="fixed inset-0 z-40"
+                                ></div>
+                                <div 
+                                    v-if="showingNotificationDropdown"
+                                    class="absolute right-0 z-50 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg"
+                                >
+                                    <div class="p-4 border-b border-slate-200">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
+                                            <button 
+                                                v-if="notifications.length > 0"
+                                                @click="markAllAsRead"
+                                                :disabled="loading"
+                                                class="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                                            >
+                                                Mark all as read
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="max-h-64 overflow-y-auto">
+                                        <div v-if="notifications.length === 0" class="p-4 text-center text-slate-500 text-sm">
+                                            No notifications
+                                        </div>
+                                        <div 
+                                            v-for="notification in notifications" 
+                                            :key="notification.id"
+                                            @click="handleNotificationClick(notification)"
+                                            class="p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                                        >
+                                            <div class="flex items-start space-x-3">
+                                                <span class="text-lg">{{ getNotificationIcon(notification.data.type) }}</span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm text-slate-900 font-medium truncate">{{ notification.data.title }}</p>
+                                                    <p class="text-xs text-slate-500 mt-1">{{ formatDate(notification.created_at) }}</p>
+                                                </div>
+                                                <div v-if="!notification.read_at" class="w-2 h-2 bg-blue-600 rounded-full"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                            
                             <!-- User Profile Dropdown -->
-                            <Dropdown align="right" width="48">
+                            <component :is="Dropdown" align="right" width="48">
                                 <template #trigger>
                                     <button class="flex items-center space-x-3 rounded-lg p-1 transition hover:bg-slate-50">
                                         <template v-if="user && user.image">
@@ -187,15 +340,14 @@ const icons = {
                                         <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                                         </svg>
                                     </button>
-                                    </template>
-
+                                </template>
 
                                 <template #content>
-                                    <DropdownLink :href="route('profile.edit')"> Profile </DropdownLink>
-                                    <DropdownLink :href="route('notifications.index')">Notifications</DropdownLink>
-                                    <DropdownLink :href="route('logout')" method="post" as="button">Log Out</DropdownLink>
+                                    <component :is="DropdownLink" v-if="DropdownLink" :href="route('profile.edit')"> Profile </component>
+                                    <component :is="DropdownLink" v-if="DropdownLink" :href="route('notifications.index')">Notifications</component>
+                                    <component :is="DropdownLink" v-if="DropdownLink" :href="route('logout')" method="post" as="button">Log Out</component>
                                 </template>
-                            </Dropdown>
+                            </component>
                         </template>
                     </div>
                 </header>
@@ -206,8 +358,35 @@ const icons = {
         </div>
         
         <!-- Mobile Sidebar (Overlay) -->
-        <div v-if="showingSidebar" class="relative z-40 md-hidden" role="dialog" aria-modal="true">
-            <!-- ... mobile sidebar template ... -->
+        <div v-if="showingSidebar" class="relative z-40 md:hidden" role="dialog" aria-modal="true">
+            <div @click="showingSidebar = false" class="fixed inset-0 bg-slate-600 bg-opacity-75"></div>
+            <div class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-white">
+                <div class="flex flex-grow flex-col overflow-y-auto border-r border-slate-200 bg-white pt-5">
+                    <div class="flex flex-shrink-0 items-center px-4 space-x-2">
+                        <Link :href="route('dashboard')">
+                            <component :is="ApplicationLogo" v-if="ApplicationLogo" class="block h-8 w-auto text-slate-800" />
+                        </Link>
+                        <span class="text-xl font-bold text-slate-800">WorkSphere</span>
+                    </div>
+                    <nav v-if="user && user.permissions && NavLink" class="mt-8 flex-1 space-y-1 px-3 pb-4">
+                        <component 
+                            :is="NavLink" 
+                            v-for="item in navigationItems" 
+                            :key="item.name"
+                            :href="route(item.route)" 
+                            :active="item.active"
+                            @click="showingSidebar = false"
+                        >
+                            <span 
+                                v-html="icons[item.icon]" 
+                                class="mr-3 flex-shrink-0 h-6 w-6" 
+                                :class="[item.active ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"
+                            ></span>
+                            {{ item.name }}
+                        </component>
+                    </nav>
+                </div>
+            </div>
         </div>
     </div>
 </template>
