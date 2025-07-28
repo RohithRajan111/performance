@@ -65,11 +65,13 @@ class StoreLeave
     $leaveDays = (float) $leaveDays; // cast to float explicitly
 
     // Validate leave balance
-    if ($leaveDays > $user->getRemainingLeaveBalance()) {
-        throw ValidationException::withMessages([
-            'leave_days' => ["You do not have enough leave balance. Remaining: {$user->getRemainingLeaveBalance()} days."],
-        ]);
-    }
+    // Validate leave balance except for emergency and sick leave
+if (!in_array($data['leave_type'], ['emergency', 'sick']) && $leaveDays > $user->getRemainingLeaveBalance()) {
+    throw ValidationException::withMessages([
+        'leave_days' => ["You do not have enough leave balance. Remaining: {$user->getRemainingLeaveBalance()} days."],
+    ]);
+}
+
 
     // Handle supporting document upload
     if (isset($data['supporting_document'])) {

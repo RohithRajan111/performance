@@ -57,7 +57,7 @@ const props = defineProps({
   leave_balances: Number,
 })
 
-const page = usePage()
+const page = usePage() // to get current user info
 
 const leaveColors = {
   pending: '#fbbf24',
@@ -99,13 +99,20 @@ function toISODateOnly(date) {
   return `${year}-${month}-${day}`
 }
 
+const currentUserId = page.props.auth.user.id
+
 const calendarEvents = computed(() => {
-  return (props.highlightedDates || []).map(ev => ({
-    display: 'background',
-    start: ev.start,
-    end: ev.end ? toISODateOnly(new Date(new Date(ev.end + 'T00:00:00').getTime() + 86400000)) : ev.start,
-    color: leaveColors[ev.color_category] || '#9ca3af',
-  }))
+  // Show only current user's own leave highlights in the calendar for leave application
+  return (props.highlightedDates || [])
+    .filter(ev => ev.user_id === currentUserId)
+    .map(ev => ({
+      display: 'background',
+      start: ev.start,
+      end: ev.end
+        ? toISODateOnly(new Date(new Date(ev.end + 'T00:00:00').getTime() + 86400000))
+        : ev.start,
+      color: leaveColors[ev.color_category] || '#9ca3af',
+    }))
 })
 
 const upcomingEvents = computed(() => {
@@ -277,7 +284,9 @@ const cancelLeave = (request) => {
           <h2 class="text-xl font-bold text-gray-800">Book time off</h2>
           <button @click="closeLeaveModal" class="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition" aria-label="Close modal">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd" />
             </svg>
           </button>
         </div>
@@ -287,13 +296,15 @@ const cancelLeave = (request) => {
           <div class="grid grid-cols-2 gap-6">
             <div>
               <InputLabel value="Who for" />
-              <div class="mt-1 p-2 bg-gray-100 border border-gray-200 rounded-md text-sm font-medium text-gray-700">
+              <div
+                class="mt-1 p-2 bg-gray-100 border border-gray-200 rounded-md text-sm font-medium text-gray-700">
                 {{ page.props.auth.user.name }}
               </div>
             </div>
             <div>
               <InputLabel for="modal_leave_type" value="Leave type" />
-              <select id="modal_leave_type" v-model="form.leave_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+              <select id="modal_leave_type" v-model="form.leave_type" required
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                 <option value="annual">Annual Leave</option>
                 <option value="sick">Sick Leave</option>
                 <option value="personal">Personal Leave</option>
@@ -307,16 +318,20 @@ const cancelLeave = (request) => {
           <div class="grid grid-cols-2 gap-6">
             <div>
               <InputLabel for="modal_start_date" value="Starting" />
-              <input type="date" id="modal_start_date" v-model="form.start_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" />
-              <select v-model="form.start_half_session" class="mt-2 block w-full border-gray-300 rounded-md shadow-sm text-sm">
+              <input type="date" id="modal_start_date" v-model="form.start_date"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" />
+              <select v-model="form.start_half_session"
+                class="mt-2 block w-full border-gray-300 rounded-md shadow-sm text-sm">
                 <option value="">Start of day</option>
                 <option value="afternoon">Afternoon</option>
               </select>
             </div>
             <div>
               <InputLabel for="modal_end_date" value="Ending" />
-              <input type="date" id="modal_end_date" v-model="form.end_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" />
-              <select v-model="form.end_half_session" class="mt-2 block w-full border-gray-300 rounded-md shadow-sm text-sm">
+              <input type="date" id="modal_end_date" v-model="form.end_date"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" />
+              <select v-model="form.end_half_session"
+                class="mt-2 block w-full border-gray-300 rounded-md shadow-sm text-sm">
                 <option value="">End of day</option>
                 <option value="morning">Morning</option>
               </select>
@@ -325,13 +340,16 @@ const cancelLeave = (request) => {
 
           <div>
             <InputLabel for="modal_reason" value="Reason" is-required />
-            <textarea id="modal_reason" v-model="form.reason" rows="3" required placeholder="e.g., Family vacation, medical appointment" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+            <textarea id="modal_reason" v-model="form.reason" rows="3" required
+              placeholder="e.g., Family vacation, medical appointment"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
             <InputError class="mt-1" :message="form.errors.reason" />
           </div>
 
           <div v-if="form.leave_type === 'sick'">
             <InputLabel for="supporting_document" value="Supporting Document (Optional)" />
-            <input id="supporting_document" type="file" @change="onFileChange" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full" />
+            <input id="supporting_document" type="file" @change="onFileChange" accept=".pdf,.jpg,.jpeg,.png"
+              class="mt-1 block w-full" />
             <InputError class="mt-1" :message="form.errors.supporting_document" />
           </div>
 
@@ -342,10 +360,12 @@ const cancelLeave = (request) => {
               from your leave balance.
             </p>
             <div class="flex items-center justify-end gap-3">
-              <button type="button" @click="closeLeaveModal" class="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+              <button type="button" @click="closeLeaveModal"
+                class="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
                 Cancel
               </button>
-              <PrimaryButton :disabled="form.processing" class="bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 px-5 py-2">
+              <PrimaryButton :disabled="form.processing"
+                class="bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 px-5 py-2">
                 {{ form.processing ? 'Submitting...' : 'Send Request' }}
               </PrimaryButton>
             </div>
@@ -358,18 +378,22 @@ const cancelLeave = (request) => {
     <Modal :show="isUploadModalVisible" @close="closeUploadModal" max-width="sm">
       <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="p-6 space-y-4">
         <InputLabel for="upload_file" value="Upload Supporting Document" />
-        <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
+        <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required
+          class="w-full" />
         <InputError :message="uploadErrors.supporting_document" />
         <div class="flex justify-end gap-3">
-          <button type="button" @click="closeUploadModal" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100">Cancel</button>
-          <PrimaryButton type="submit" :disabled="uploadProcessing">{{ uploadProcessing ? 'Uploading...' : 'Upload' }}</PrimaryButton>
+          <button type="button" @click="closeUploadModal"
+            class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100">Cancel</button>
+          <PrimaryButton type="submit" :disabled="uploadProcessing">
+            {{ uploadProcessing ? 'Uploading...' : 'Upload' }}
+          </PrimaryButton>
         </div>
       </form>
     </Modal>
 
     <div class="py-8 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
-      <!-- Employee View -->
-      <div v-if="!canManage" class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      <!-- Show calendar and leave booking form for all users (removed v-if="!canManage") -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <!-- Calendar -->
         <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
           <div class="flex items-center justify-between mb-4">
@@ -382,7 +406,8 @@ const cancelLeave = (request) => {
           <div class="flex items-center justify-between mb-4">
             <p class="text-sm text-gray-500">Click a date on the calendar to open the request form.</p>
             <div class="bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-md px-3 py-1 text-sm font-semibold">
-              Remaining Leaves: <span class="ml-1">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</span>
+              Remaining Leaves: <span
+                class="ml-1">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</span>
             </div>
           </div>
 
@@ -401,11 +426,8 @@ const cancelLeave = (request) => {
                 About Leave Types
               </h3>
               <ul class="space-y-4">
-                <li
-                  v-for="(info, key) in leaveTypeDescriptions"
-                  :key="key"
-                  class="p-3 rounded-md border border-gray-100 hover:border-indigo-300 transition-colors cursor-default"
-                >
+                <li v-for="(info, key) in leaveTypeDescriptions" :key="key"
+                  class="p-3 rounded-md border border-gray-100 hover:border-indigo-300 transition-colors cursor-default">
                   <div class="text-base font-semibold text-gray-800 mb-1">{{ info.label }}</div>
                   <div class="text-sm text-gray-600 leading-relaxed">{{ info.description }}</div>
                 </li>
@@ -420,10 +442,12 @@ const cancelLeave = (request) => {
               </h3>
               <ul v-if="upcomingEvents.length > 0" class="space-y-3">
                 <li v-for="event in upcomingEvents" :key="event.start" class="flex items-start gap-3">
-                  <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full" :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
+                  <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full"
+                    :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
                   <div>
                     <p class="text-sm font-medium text-gray-800">{{ event.title }}</p>
-                    <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to {{ event.end }}</span></p>
+                    <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to
+                        {{ event.end }}</span></p>
                   </div>
                 </li>
               </ul>
@@ -471,23 +495,24 @@ const cancelLeave = (request) => {
                   <span v-if="request.end_date !== request.start_date">→ {{ toISODateOnly(new Date(request.end_date)) }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap capitalize text-gray-800">{{ request.leave_type }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-center font-medium text-gray-800">{{ formatLeaveDays(request.leave_days) }}</td>
-                <td class="px-6 py-4"><p class="truncate max-w-xs" :title="request.reason">{{ request.reason }}</p></td>
+                <td
+                  class="px-6 py-4 whitespace-nowrap text-center font-medium text-gray-800">{{ formatLeaveDays(request.leave_days) }}</td>
+                <td class="px-6 py-4">
+                  <p class="truncate max-w-xs" :title="request.reason">{{ request.reason }}</p>
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="statusConfig[request.status]?.class" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium capitalize">
+                  <span :class="statusConfig[request.status]?.class"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium capitalize">
                     <component :is="statusConfig[request.status]?.icon" class="h-3.5 w-3.5" />
                     {{ request.status }}
                   </span>
                 </td>
                 <td class="px-6 py-4 text-center whitespace-nowrap space-y-1">
                   <div>
-                    <a
-                      v-if="request.supporting_document_path"
-                      :href="`/storage/${request.supporting_document_path}`"
+                    <a v-if="request.supporting_document_path" :href="`/storage/${request.supporting_document_path}`"
                       target="_blank"
                       class="text-indigo-600 hover:underline flex items-center justify-center gap-1"
-                      title="View supporting document"
-                    >
+                      title="View supporting document">
                       <DocumentIcon class="h-5 w-5" /> View
                     </a>
                     <span v-else class="text-gray-400 text-xs italic">—</span>
@@ -502,11 +527,13 @@ const cancelLeave = (request) => {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right">
                   <div v-if="props.canManage && request.status === 'pending'" class="flex justify-end gap-2">
-                    <button @click="updateStatus(request, 'approved')" class="p-1.5 rounded-md hover:bg-green-100 text-green-600" title="Approve">
-                      <CheckBadgeIcon class="h-5 w-5"/>
+                    <button @click="updateStatus(request, 'approved')" class="p-1.5 rounded-md hover:bg-green-100 text-green-600"
+                      title="Approve">
+                      <CheckBadgeIcon class="h-5 w-5" />
                     </button>
-                    <button @click="updateStatus(request, 'rejected')" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Reject">
-                      <XCircleIcon class="h-5 w-5"/>
+                    <button @click="updateStatus(request, 'rejected')" class="p-1.5 rounded-md hover:bg-red-100 text-red-600"
+                      title="Reject">
+                      <XCircleIcon class="h-5 w-5" />
                     </button>
                   </div>
                   <div v-else-if="!props.canManage && request.status === 'pending'">
@@ -514,7 +541,7 @@ const cancelLeave = (request) => {
                       <TrashIcon class="h-5 w-5" />
                     </button>
                   </div>
-                  <!-- Removed upload button from here -->
+                  <!-- No upload button here -->
                 </td>
               </tr>
             </tbody>
