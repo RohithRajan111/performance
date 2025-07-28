@@ -1,95 +1,47 @@
+<!-- Leave/Index.vue -->
+
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import Modal from '@/Components/Modal.vue'
 import InputError from '@/Components/InputError.vue'
 import InputLabel from '@/Components/InputLabel.vue'
 import PrimaryButton from '@/Components/PrimaryButton.vue'
-import { Head, useForm, router, usePage } from '@inertiajs/vue3'
-import { ref, watch, computed } from 'vue'
-
+import { Head, useForm, router } from '@inertiajs/vue3'
+import { ref, watch, onMounted } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import {
-  UserGroupIcon,
-  CalendarDaysIcon,
-  CheckBadgeIcon,
-  XCircleIcon,
-  PencilSquareIcon,
-  TrashIcon,
-  BriefcaseIcon,
-  SparklesIcon,
-  DocumentIcon,
-} from '@heroicons/vue/24/outline'
-
-// Leave type descriptions
-const leaveTypeDescriptions = {
-  annual: {
-    label: "Annual Leave",
-    description: "Used for planned vacations and time away from work. Should be requested at least 7 days in advance.",
-  },
-  sick: {
-    label: "Sick Leave",
-    description: "For illness or medical appointments. Supporting documents can be uploaded during or after leave submission, even after approval.",
-  },
-  personal: {
-    label: "Personal Leave",
-    description: "For personal matters such as family emergencies, errands, or short-term absences. Request at least 3 days in advance.",
-  },
-  emergency: {
-    label: "Emergency Leave",
-    description: "For sudden, unforeseen circumstances. May require manager notification as soon as possible.",
-  },
-  maternity: {
-    label: "Maternity Leave",
-    description: "For childbirth and childcare. Extended leave with special documentation and eligibility.",
-  },
-  paternity: {
-    label: "Paternity Leave",
-    description: "For supporting a partner during and after childbirth. Usually shorter term and may have eligibility requirements.",
-  }
-}
 
 const props = defineProps({
   leaveRequests: Array,
   canManage: Boolean,
   highlightedDates: Array,
-  leave_balances: Number,
+  remainingLeaveBalance: Number,
 })
-
-const page = usePage()
 
 const leaveColors = {
   pending: '#fbbf24',
   annual: '#3b82f6',
-  approved: '#22c55e',
-  sick: '#14b8a6',
+  sick: '#22c55e',
   personal: '#f59e0b',
-  rejected: '#b91c1c',
+  emergency: '#f97316',
   maternity: '#ec4899',
   paternity: '#6366f1',
-  emergency: '#f97316',
-  holiday: 'bg-purple-500',
+  rejected: '#b91c1c',
 }
 
+const selectedDates = ref([null, null])
 const today = new Date()
 today.setHours(0, 0, 0, 0)
 
-const isLeaveModalVisible = ref(false)
 const form = useForm({
   start_date: '',
   end_date: '',
-  start_half_session: '',
-  end_half_session: '',
   reason: '',
   leave_type: 'annual',
+  day_type: 'full',
+  start_half_session: '',
+  end_half_session: '',
 })
-const supportingDocument = ref(null)
-
-function onFileChange(event) {
-  const file = event.target.files[0]
-  supportingDocument.value = file
-}
 
 function toISODateOnly(date) {
   if (!date) return ''
@@ -99,42 +51,171 @@ function toISODateOnly(date) {
   return `${year}-${month}-${day}`
 }
 
-const calendarEvents = computed(() => {
+function getBackgroundEvents() {
   return (props.highlightedDates || []).map(ev => ({
     display: 'background',
     start: ev.start,
     end: ev.end ? toISODateOnly(new Date(new Date(ev.end + 'T00:00:00').getTime() + 86400000)) : ev.start,
     color: leaveColors[ev.color_category] || '#9ca3af',
+    title: ev.title,
   }))
-})
+}
 
-const upcomingEvents = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return (props.highlightedDates || [])
-    .filter(event => new Date(event.start + 'T00:00:00') >= today)
-    .sort((a, b) => new Date(a.start) - new Date(b.start))
-    .slice(0, 4)
-})
+function getSelectionBackground() {
+  const [start, end] = selectedDates.value
+  if (start && end) {
+    return [{
+      display: 'background',
+      start: toISODateOnly(start),
+      end: toISODateOnly(new Date(end.getTime() + 24 * 60 * 60 * 1000)),
+      color: '#2563eb',
+    }]
+  }
+  if (start) {
+    return [{
+      display: 'background',
+      start: toISODateOnly(start),
+      end: toISODateOnly(new Date(start.getTime() + 24 * 60 * 60 * 1000)),
+      color: '#ea580c',
+    }]
+  }
+  return []
+}
+
+function updateFormDates() {
+  const [start, end] = selectedDates.value
+  form.start_date = start ? toISODateOnly(start) : ''
+  form.end_date = end ? toISODateOnly(end) : ''
+}
 
 const handleDateClick = (info) => {
-  const clicked = new Date(info.dateStr + 'T00:00:00')
+  const clicked = new Date(info.date)
+  clicked.setHours(0, 0, 0, 0)
+
   if (clicked < today) {
-    alert('Please select a date that is today or in the future.')
+    alert('Please select a date that is today or after today.')
     return
   }
-  supportingDocument.value = null
-  form.reset()
-  form.start_date = info.dateStr
-  form.end_date = info.dateStr
-  isLeaveModalVisible.value = true
+
+  const [start, end] = selectedDates.value
+
+  if (!start) {
+    selectedDates.value = [clicked, null]
+  } else if (!end) {
+    if (clicked >= start) {
+      selectedDates.value = [start, clicked]
+    } else {
+      selectedDates.value = [clicked, null]
+    }
+  } else {
+    selectedDates.value = [clicked, null]
+  }
+
+  updateFormDates()
+}
+
+const submitApplication = () => {
+  if (form.day_type === 'half') {
+    if (!form.start_half_session) {
+      alert('Please select morning or afternoon session for start date.')
+      return
+    }
+    if (form.end_date && form.start_date !== form.end_date && !form.end_half_session) {
+      alert('Please select morning or afternoon session for end date.')
+      return
+    }
+  }
+
+  if (!form.start_date) {
+    alert('Please select at least a start date.')
+    return
+  }
+
+  if (!form.end_date) {
+    form.end_date = form.start_date
+    selectedDates.value = [new Date(form.start_date), new Date(form.start_date)]
+    if (form.day_type === 'half') {
+      form.end_half_session = form.start_half_session
+    }
+  }
+  
+  if (form.day_type === 'full') {
+    form.start_half_session = null
+    form.end_half_session = null
+  }
+
+  const startDate = new Date(form.start_date)
+  const timeDiff = startDate.getTime() - today.getTime()
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+
+  if (form.leave_type === 'annual' && daysDiff < 7) {
+    if (!confirm(`Warning: Annual leaves should be requested at least 7 days in advance. Do you still want to submit?`)) {
+      return
+    }
+  }
+  if (form.leave_type === 'personal' && daysDiff < 3) {
+    if (!confirm(`Warning: Personal leaves should be requested at least 3 days in advance. Do you still want to submit?`)) {
+      return
+    }
+  }
+
+  form.post(route('leave.store'), {
+    preserveScroll: true,
+    onSuccess: () => {
+    form.reset()  
+      form.leave_type = 'annual'
+      form.day_type = 'full'
+      form.start_half_session = ''
+      form.end_half_session = ''
+      selectedDates.value = [null, null]
+    },
+    onError: (errors) => {
+      console.error('Leave submission errors:', errors)
+      if (errors.message) {
+        alert(errors.message)
+      }
+    }
+  })
+}
+
+const formatLeaveDays = (days) => {
+  const num = Number(days)
+  if (isNaN(num)) return '0'
+  if (num % 1 === 0.5) return `${Math.floor(num)}.5` 
+  return num % 1 === 0 ? num.toString() : num.toFixed(1)
+}
+
+const statusConfig = {
+  approved: { class: 'bg-green-100 text-green-800', icon: '✅' },
+  rejected: { class: 'bg-red-100 text-red-800', icon: '❌' },
+  pending: { class: 'bg-yellow-100 text-yellow-800', icon: '⏳' },
+}
+
+const updateStatus = (request, newStatus) => {
+  router.patch(route('leave.update', { leave_application: request.id }), {
+    status: newStatus,
+  }, { preserveScroll: true })
+}
+
+const cancelLeave = (request) => {
+  if (confirm('Are you sure you want to cancel this leave request?')) {
+    router.delete(route('leave.cancel', { leave_application: request.id }), {
+      preserveScroll: true,
+    })
+  }
 }
 
 const calendarOptions = ref({
   plugins: [dayGridPlugin, interactionPlugin],
   initialView: 'dayGridMonth',
-  height: 'auto',
-  events: calendarEvents.value,
+  selectable: true,
+  selectMirror: true,
+  height: 350,
+  aspectRatio: 1.3,
+  events: [
+    ...getBackgroundEvents(),
+    ...getSelectionBackground(),
+  ],
   dateClick: handleDateClick,
   headerToolbar: {
     left: 'title',
@@ -143,121 +224,87 @@ const calendarOptions = ref({
   },
 })
 
-watch(calendarEvents, (newEvents) => {
-  calendarOptions.value.events = newEvents
+watch(selectedDates, () => {
+  calendarOptions.value.events = [
+    ...getBackgroundEvents(),
+    ...getSelectionBackground(),
+  ]
+}, { deep: true })
+
+watch(() => props.highlightedDates, () => {
+  calendarOptions.value.events = [
+    ...getBackgroundEvents(),
+    ...getSelectionBackground(),
+  ]
+}, { deep: true })
+
+onMounted(() => {
+  calendarOptions.value.events = [
+    ...getBackgroundEvents(),
+    ...getSelectionBackground(),
+  ]
 })
 
-const computedLeaveDays = computed(() => {
-  const start = form.start_date ? new Date(form.start_date + 'T00:00:00') : null
-  const end = form.end_date ? new Date(form.end_date + 'T00:00:00') : null
-  if (!start || !end || start > end) return 0
-
-  const sHalf = form.start_half_session
-  const eHalf = form.end_half_session
-  const isSingleDay = start.getTime() === end.getTime()
-
-  if (isSingleDay) {
-    if (!sHalf && !eHalf) return 1.0
-    else if (!sHalf && eHalf === 'morning') return 0.5
-    else if (sHalf === 'afternoon' && !eHalf) return 0.5
-    else if (sHalf === 'afternoon' && eHalf === 'morning') return 0
-    else return 1.0
-  }
-
-  const firstDayValue = (sHalf === 'afternoon') ? 0.5 : 1.0
-  const lastDayValue = (eHalf === 'morning') ? 0.5 : 1.0
-  const diffInMs = end.getTime() - start.getTime()
-  const diffInDays = diffInMs / (1000 * 60 * 60 * 24)
-  const daysInBetween = Math.max(0, diffInDays - 1)
-  return firstDayValue + lastDayValue + daysInBetween
-})
-
-const closeLeaveModal = () => {
-  isLeaveModalVisible.value = false
-  supportingDocument.value = null
-}
-
-const submitLeaveFromModal = () => {
-  const formData = new FormData()
-  for (const [key, val] of Object.entries(form.data())) {
-    formData.append(key, val ?? '')
-  }
-  if (supportingDocument.value) {
-    formData.append('supporting_document', supportingDocument.value)
-  }
-  router.post(route('leave.store'), formData, {
-    preserveScroll: true,
-    headers: { 'Content-Type': 'multipart/form-data' },
-    onSuccess: () => closeLeaveModal(),
-  })
-}
-
-// Upload Modal State and Methods
-const isUploadModalVisible = ref(false)
-const uploadFile = ref(null)
-const uploadErrors = ref({})
-const uploadProcessing = ref(false)
-const currentUploadLeaveId = ref(null)
-
-const openUploadModal = (leaveId) => {
-  currentUploadLeaveId.value = leaveId
-  uploadFile.value = null
-  uploadErrors.value = {}
-  uploadProcessing.value = false
-  isUploadModalVisible.value = true
-}
-
-const closeUploadModal = () => {
-  isUploadModalVisible.value = false
-  currentUploadLeaveId.value = null
-  uploadFile.value = null
-  uploadErrors.value = {}
-  uploadProcessing.value = false
-}
-
-function onUploadFileChange(event) {
-  uploadFile.value = event.target.files[0]
-}
-
-const submitUpload = () => {
-  if (!uploadFile.value) {
-    uploadErrors.value.supporting_document = 'Please select a file.'
-    return
-  }
-  uploadProcessing.value = true
-  const formData = new FormData()
-  formData.append('supporting_document', uploadFile.value)
-
-  router.post(route('leave.uploadDocument', { leave_application: currentUploadLeaveId.value }), formData, {
-    preserveScroll: true,
-    headers: { 'Content-Type': 'multipart/form-data' },
-    onSuccess: () => {
-      uploadProcessing.value = false
-      closeUploadModal()
-      router.reload() // refresh to show updated document link
-    },
-    onError: (errors) => {
-      uploadProcessing.value = false
-      uploadErrors.value = errors
-    },
-  })
-}
-
-const formatLeaveDays = (days) => Number(days).toFixed(days % 1 === 0 ? 0 : 1)
-
-const statusConfig = {
-  approved: { class: 'bg-green-100 text-green-800', icon: CheckBadgeIcon },
-  rejected: { class: 'bg-red-100 text-red-800', icon: XCircleIcon },
-  pending: { class: 'bg-amber-100 text-amber-800', icon: PencilSquareIcon },
-}
-
-const updateStatus = (request, newStatus) => {
-  router.patch(route('leave.update', { leave_application: request.id }), { status: newStatus }, { preserveScroll: true })
-}
-
-const cancelLeave = (request) => {
-  if (confirm('Are you sure you want to cancel this leave request?')) {
-    router.delete(route('leave.cancel', { leave_application: request.id }), { preserveScroll: true })
+const leaveTypeDescriptions = {
+  annual: {
+    title: "Annual Leave",
+    summary: "Planned time off with advance notice",
+    details: [
+      "✓ For vacations, personal time, or other planned absences",
+      "✓ Should be requested at least 7 days in advance",
+      "✓ Requires manager approval",
+      "✓ Balance accrued based on tenure (typically 15-25 days/year)"
+    ]
+  },
+  sick: {
+    title: "Sick Leave",
+    summary: "For illness or medical appointments",
+    details: [
+      "✓ Can be requested with short notice",
+      "✓ Doctor's note required for absences longer than 3 days",
+      "✓ Typically up to 10 paid days/year",
+      "✓ Covers medical appointments and contagious illnesses"
+    ]
+  },
+  personal: {
+    title: "Personal Leave",
+    summary: "For personal matters requiring 3+ days notice",
+    details: [
+      "✓ Requires at least 3 days notice when possible",
+      "✓ Limited to 5 paid days/year",
+      "✓ Examples: Family emergencies, urgent personal business",
+      "✓ Not for routine errands or non-urgent matters"
+    ]
+  },
+  emergency: {
+    title: "Emergency Leave",
+    summary: "Unplanned urgent situations",
+    details: [
+      "✓ No advance notice required",
+      "✓ Typically unpaid after 3 days",
+      "✓ Examples: Natural disasters, serious family emergencies",
+      "✓ Documentation may be required for extended leave"
+    ]
+  },
+  maternity: {
+    title: "Maternity Leave",
+    summary: "For new mothers (typically 12+ weeks)",
+    details: [
+      "✓ Typically 12 weeks paid (varies by location)",
+      "✓ Requires 30 days notice when possible",
+      "✓ Medical documentation required",
+      "✓ Can be combined with other leave types"
+    ]
+  },
+  paternity: {
+    title: "Paternity Leave",
+    summary: "For new fathers (typically 2-4 weeks)",
+    details: [
+      "✓ Typically 2-4 weeks paid",
+      "✓ Can be taken within 6 months of birth/adoption",
+      "✓ Requires 30 days notice when possible",
+      "✓ Can be taken intermittently in some cases"
+    ]
   }
 }
 </script>
@@ -267,248 +314,278 @@ const cancelLeave = (request) => {
 
   <AuthenticatedLayout>
     <template #header>
-      <h2 class="font-semibold text-xl text-gray-800 leading-tight">Leave Applications</h2>
+      <h2 class="text-2xl font-bold text-gray-800">Leave Applications</h2>
     </template>
 
-    <!-- Leave Request Modal -->
-    <Modal :show="isLeaveModalVisible" @close="closeLeaveModal" max-width="lg">
-      <div class="p-6 font-sans">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold text-gray-800">Book time off</h2>
-          <button @click="closeLeaveModal" class="p-1 rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition" aria-label="Close modal">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-            </svg>
-          </button>
+    <div class="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <!-- Leave Request Form -->
+      <div v-if="!canManage" class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="p-6 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900">New Leave Request</h3>
+          <p class="mt-1 text-sm text-gray-500">Select dates and provide details for your leave</p>
         </div>
+        
 
-        <form @submit.prevent="submitLeaveFromModal" class="mt-6 space-y-6" enctype="multipart/form-data">
-          <!-- Form Fields -->
-          <div class="grid grid-cols-2 gap-6">
-            <div>
-              <InputLabel value="Who for" />
-              <div class="mt-1 p-2 bg-gray-100 border border-gray-200 rounded-md text-sm font-medium text-gray-700">
-                {{ page.props.auth.user.name }}
+        <form @submit.prevent="submitApplication" class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+          <!-- Calendar Section -->
+          <div class="lg:col-span-2 space-y-4">
+            <div class="flex items-center justify-between">
+              <InputLabel value="Select Dates" class="text-sm font-medium text-gray-700" />
+              <div class="text-xs font-medium px-3 py-1 rounded-full bg-blue-100 text-blue-800">
+                <template v-if="form.start_date && !form.end_date">
+                  {{ form.start_date }}
+                  <span v-if="form.day_type === 'half'">({{ form.start_half_session || 'full day' }})</span>
+                </template>
+                <template v-else-if="form.start_date && form.end_date">
+                  {{ form.start_date }} to {{ form.end_date }}
+                </template>
+                <template v-else>
+                  No dates selected
+                </template>
               </div>
             </div>
-            <div>
-              <InputLabel for="modal_leave_type" value="Leave type" />
-              <select id="modal_leave_type" v-model="form.leave_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                <option value="annual">Annual Leave</option>
-                <option value="sick">Sick Leave</option>
-                <option value="personal">Personal Leave</option>
-                <option value="emergency">Emergency Leave</option>
-                <option value="maternity">Maternity Leave</option>
-                <option value="paternity">Paternity Leave</option>
-              </select>
+
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+              <FullCalendar :options="calendarOptions" class="h-[350px]" />
             </div>
+            <InputError :message="form.errors.start_date" />
           </div>
 
-          <div class="grid grid-cols-2 gap-6">
-            <div>
-              <InputLabel for="modal_start_date" value="Starting" />
-              <input type="date" id="modal_start_date" v-model="form.start_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" />
-              <select v-model="form.start_half_session" class="mt-2 block w-full border-gray-300 rounded-md shadow-sm text-sm">
-                <option value="">Start of day</option>
-                <option value="afternoon">Afternoon</option>
-              </select>
+          <!-- Form Fields Section -->
+          <div class="space-y-4">
+            <!-- Leave Balance -->
+            <div class="bg-blue-50 p-4 rounded-lg">
+              <div class="text-sm font-medium text-gray-700">Remaining Leave Balance</div>
+              <div class="text-2xl font-bold text-blue-600 mt-1">
+                {{ props.remainingLeaveBalance }} day{{ props.remainingLeaveBalance !== 1 ? 's' : '' }}
+              </div>
             </div>
+
+            <!-- Leave Type -->
             <div>
-              <InputLabel for="modal_end_date" value="Ending" />
-              <input type="date" id="modal_end_date" v-model="form.end_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" />
-              <select v-model="form.end_half_session" class="mt-2 block w-full border-gray-300 rounded-md shadow-sm text-sm">
-                <option value="">End of day</option>
-                <option value="morning">Morning</option>
-              </select>
+              <InputLabel for="leave_type" value="Leave Type" class="text-sm font-medium text-gray-700 mb-1" />
+              <select
+  id="leave_type"
+  v-model="form.leave_type"
+  required
+  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+>
+  <option value="annual">Annual Leave (Planned time off, 7+ days notice)</option>
+  <option value="sick">Sick Leave (Illness/medical appointments)</option>
+  <option value="personal">Personal Leave (Personal matters, 3+ days notice)</option>
+  <option value="emergency">Emergency Leave (Unplanned urgent situations)</option>
+  <option value="maternity">Maternity Leave (For new mothers)</option>
+  <option value="paternity">Paternity Leave (For new fathers)</option>
+</select>
+              <InputError :message="form.errors.leave_type" />
+              
+              <!-- Detailed Leave Description -->
+              <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 class="font-medium text-gray-800 mb-1">{{ leaveTypeDescriptions[form.leave_type].title }}</h4>
+                <p class="text-sm text-gray-600 mb-2">{{ leaveTypeDescriptions[form.leave_type].summary }}</p>
+                <ul class="text-xs space-y-1 text-gray-600">
+                  <li v-for="(detail, index) in leaveTypeDescriptions[form.leave_type].details" :key="index">
+                    {{ detail }}
+                  </li>
+                </ul>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <InputLabel for="modal_reason" value="Reason" is-required />
-            <textarea id="modal_reason" v-model="form.reason" rows="3" required placeholder="e.g., Family vacation, medical appointment" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
-            <InputError class="mt-1" :message="form.errors.reason" />
-          </div>
+            <!-- Day Type -->
+            <div>
+              <InputLabel value="Day Type" class="text-sm font-medium text-gray-700 mb-1" />
+              <div class="flex space-x-4 mt-1">
+                <label class="inline-flex items-center">
+                  <input
+                    type="radio"
+                    v-model="form.day_type"
+                    value="full"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">Full Day</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input
+                    type="radio"
+                    v-model="form.day_type"
+                    value="half"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">Half Day</span>
+                </label>
+              </div>
+            </div>
 
-          <div v-if="form.leave_type === 'sick'">
-            <InputLabel for="supporting_document" value="Supporting Document (Optional)" />
-            <input id="supporting_document" type="file" @change="onFileChange" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full" />
-            <InputError class="mt-1" :message="form.errors.supporting_document" />
-          </div>
+            <!-- Half Day Options -->
+            <template v-if="form.day_type === 'half'">
+              <div>
+                <InputLabel value="Start Session" class="text-sm font-medium text-gray-700 mb-1" />
+                <div class="flex space-x-4 mt-1">
+                  <label class="inline-flex items-center">
+                    <input
+                      type="radio"
+                      v-model="form.start_half_session"
+                      value="morning"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span class="ml-2 text-sm text-gray-700">Morning</span>
+                  </label>
+                  <label class="inline-flex items-center">
+                    <input
+                      type="radio"
+                      v-model="form.start_half_session"
+                      value="afternoon"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span class="ml-2 text-sm text-gray-700">Afternoon</span>
+                  </label>
+                </div>
+                <InputError :message="form.errors.start_half_session" />
+              </div>
 
-          <div class="border-t border-gray-200 pt-5">
-            <p v-if="computedLeaveDays > 0" class="text-center text-sm text-gray-600 mb-5">
-              This request will use
-              <b class="text-indigo-600">{{ formatLeaveDays(computedLeaveDays) }} day{{ computedLeaveDays !== 1 ? 's' : '' }}</b>
-              from your leave balance.
-            </p>
-            <div class="flex items-center justify-end gap-3">
-              <button type="button" @click="closeLeaveModal" class="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                Cancel
-              </button>
-              <PrimaryButton :disabled="form.processing" class="bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 px-5 py-2">
-                {{ form.processing ? 'Submitting...' : 'Send Request' }}
+              <div v-if="form.end_date && form.start_date !== form.end_date">
+                <InputLabel value="End Session" class="text-sm font-medium text-gray-700 mb-1" />
+                <div class="flex space-x-4 mt-1">
+                  <label class="inline-flex items-center">
+                    <input
+                      type="radio"
+                      v-model="form.end_half_session"
+                      value="morning"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span class="ml-2 text-sm text-gray-700">Morning</span>
+                  </label>
+                  <label class="inline-flex items-center">
+                    <input
+                      type="radio"
+                      v-model="form.end_half_session"
+                      value="afternoon"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span class="ml-2 text-sm text-gray-700">Afternoon</span>
+                  </label>
+                </div>
+                <InputError :message="form.errors.end_half_session" />
+              </div>
+            </template>
+
+            <!-- Reason -->
+            <div>
+              <InputLabel for="reason" value="Reason" class="text-sm font-medium text-gray-700 mb-1" />
+              <textarea
+                id="reason"
+                v-model="form.reason"
+                rows="3"
+                required
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                placeholder="Brief explanation for your leave request"
+              ></textarea>
+              <InputError :message="form.errors.reason" />
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-2">
+              <PrimaryButton
+                :disabled="form.processing"
+                class="w-full justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {{ form.processing ? 'Submitting...' : 'Submit Leave Request' }}
               </PrimaryButton>
             </div>
           </div>
         </form>
       </div>
-    </Modal>
-
-    <!-- Upload Document Modal -->
-    <Modal :show="isUploadModalVisible" @close="closeUploadModal" max-width="sm">
-      <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="p-6 space-y-4">
-        <InputLabel for="upload_file" value="Upload Supporting Document" />
-        <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
-        <InputError :message="uploadErrors.supporting_document" />
-        <div class="flex justify-end gap-3">
-          <button type="button" @click="closeUploadModal" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100">Cancel</button>
-          <PrimaryButton type="submit" :disabled="uploadProcessing">{{ uploadProcessing ? 'Uploading...' : 'Upload' }}</PrimaryButton>
-        </div>
-      </form>
-    </Modal>
-
-    <div class="py-8 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
-      <!-- Employee View -->
-      <div v-if="!canManage" class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <!-- Calendar -->
-        <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-  <div class="flex items-center justify-between mb-4">
-    <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-      <CalendarDaysIcon class="h-6 w-6 text-blue-500" />
-      Leave Calendar & Booking
-    </h3>
-  </div>
-
-  <div class="flex items-center justify-between mb-4">
-    <p class="text-sm text-gray-500">Click a date on the calendar to open the request form.</p>
-    <div class="bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-md px-3 py-1 text-sm font-semibold">
-      Remaining Leaves: <span class="ml-1">{{ props.leave_balances }} day{{ props.leave_balances !== 1 ? 's' : '' }}</span>
-    </div>
-  </div>
-
-  <div class="border border-gray-200 rounded-lg overflow-hidden">
-    <FullCalendar :options="calendarOptions" />
-  </div>
-</div>
-
-
-        <!-- Info Panels -->
-       <div>
-
-          <div class="lg:col-span-1 space-y-6">
-  <!-- About Leave Types -->
-  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-h-[400px] overflow-y-auto">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-      <CalendarDaysIcon class="h-6 w-6 text-indigo-500" />
-      About Leave Types
-    </h3>
-    <ul class="space-y-4">
-      <li
-        v-for="(info, key) in leaveTypeDescriptions"
-        :key="key"
-        class="p-3 rounded-md border border-gray-100 hover:border-indigo-300 transition-colors cursor-default"
-      >
-        <div class="text-base font-semibold text-gray-800 mb-1">{{ info.label }}</div>
-        <div class="text-sm text-gray-600 leading-relaxed">{{ info.description }}</div>
-      </li>
-    </ul>
-  </div>
-
-  <!-- Upcoming Time Off (unchanged) -->
-  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-    <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2 mb-4">
-      <SparklesIcon class="h-6 w-6 text-gray-500" />
-      Upcoming Time Off
-    </h3>
-    <ul v-if="upcomingEvents.length > 0" class="space-y-3">
-      <li v-for="event in upcomingEvents" :key="event.start" class="flex items-start gap-3">
-        <div class="flex-shrink-0 mt-1 w-3 h-3 rounded-full" :style="{ backgroundColor: leaveColors[event.color_category] || '#9ca3af' }"></div>
-        <div>
-          <p class="text-sm font-medium text-gray-800">{{ event.title }}</p>
-          <p class="text-xs text-gray-500 font-mono">{{ event.start }}<span v-if="event.end && event.end !== event.start"> to {{ event.end }}</span></p>
-        </div>
-      </li>
-    </ul>
-    <p v-else class="text-sm text-center text-gray-500 py-4">No upcoming holidays or approved leave.</p>
-  </div>
-</div>
-
-</div>
-      </div>
 
       <!-- Leave Requests Table -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div class="p-4 sm:p-6 border-b border-gray-200">
-          <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            <UserGroupIcon class="h-6 w-6 text-gray-500" />
-            {{ props.canManage ? 'All Employee Leave Requests' : 'Your Leave History' }}
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900">
+            {{ canManage ? 'Employee Leave Requests' : 'Your Leave History' }}
           </h3>
         </div>
 
-        <div v-if="!props.leaveRequests || props.leaveRequests.length === 0" class="text-center py-12 text-gray-500">
-          <p>No leave requests found.</p>
+        <div v-if="props.leaveRequests.length === 0" class="p-8 text-center">
+          <div class="text-gray-400 text-lg">No leave requests found</div>
         </div>
 
         <div v-else class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wider">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
               <tr>
-                <th v-if="props.canManage" class="px-6 py-3 font-medium">Employee</th>
-                <th class="px-6 py-3 font-medium">Dates</th>
-                <th class="px-6 py-3 font-medium">Type</th>
-                <th class="px-6 py-3 font-medium text-center">Duration</th>
-                <th class="px-6 py-3 font-medium">Reason</th>
-                <th class="px-6 py-3 font-medium">Status</th>
-                <th class="px-6 py-3 font-medium">Document</th>
-                <th class="px-6 py-3 font-medium text-right">Actions</th>
+                <th v-if="canManage" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Employee
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Dates
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duration
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Reason
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr v-for="request in props.leaveRequests" :key="request.id">
-                <td v-if="props.canManage" class="px-6 py-4 whitespace-nowrap">
-                  <div class="font-medium text-gray-900">{{ request.user?.name || 'N/A' }}</div>
-                  <div class="text-xs text-gray-500">{{ request.user?.email }}</div>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="request in props.leaveRequests" :key="request.id" class="hover:bg-gray-50">
+                <td v-if="canManage" class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{ request.user?.name }}</div>
+                  <div class="text-sm text-gray-500">{{ request.user?.email }}</div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap font-mono text-gray-700">
-                  {{ toISODateOnly(new Date(request.start_date)) }}
-                  <span v-if="request.end_date !== request.start_date">→ {{ toISODateOnly(new Date(request.end_date)) }}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap capitalize text-gray-800">{{ request.leave_type }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-center font-medium text-gray-800">{{ formatLeaveDays(request.leave_days) }}</td>
-                <td class="px-6 py-4"><p class="truncate max-w-xs" :title="request.reason">{{ request.reason }}</p></td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="statusConfig[request.status]?.class" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium capitalize">
-                    <component :is="statusConfig[request.status]?.icon" class="h-3.5 w-3.5" />
-                    {{ request.status }}
+                  <div class="text-sm text-gray-900">
+                    {{ new Date(request.start_date).toLocaleDateString() }}
+                    <span v-if="request.start_date !== request.end_date">
+                      - {{ new Date(request.end_date).toLocaleDateString() }}
+                    </span>
+                  </div>
+                  <div v-if="request.day_type === 'half'" class="text-xs text-gray-500">
+                    {{ request.start_half_session || 'full' }} session
+                    <span v-if="request.start_date !== request.end_date">
+                      to {{ request.end_half_session || 'full' }} session
+                    </span>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                  {{ request.leave_type }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                  {{ request.reason }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center">
+                    {{ statusConfig[request.status].icon }} {{ request.status }}
                   </span>
                 </td>
-                <td class="px-6 py-4 text-center whitespace-nowrap">
-                  <a
-                    v-if="request.supporting_document_path"
-                    :href="`/storage/${request.supporting_document_path}`"
-                    target="_blank"
-                    class="text-indigo-600 hover:underline flex items-center justify-center gap-1"
-                    title="View supporting document"
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div v-if="canManage && request.status === 'pending'" class="space-x-2">
+                    <button @click="updateStatus(request, 'approved')" class="text-green-600 hover:text-green-900">
+                      Approve
+                    </button>
+                    <button @click="updateStatus(request, 'rejected')" class="text-red-600 hover:text-red-900">
+                      Reject
+                    </button>
+                  </div>
+                  <button 
+                    v-else-if="!canManage && request.status === 'pending'" 
+                    @click="cancelLeave(request)"
+                    class="text-red-600 hover:text-red-900"
                   >
-                    <DocumentIcon class="h-5 w-5" /> View
-                  </a>
-                  <span v-else class="text-gray-400 text-xs italic">—</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <div v-if="props.canManage && request.status === 'pending'" class="flex justify-end gap-2">
-                    <button @click="updateStatus(request, 'approved')" class="p-1.5 rounded-md hover:bg-green-100 text-green-600" title="Approve"><CheckBadgeIcon class="h-5 w-5"/></button>
-                    <button @click="updateStatus(request, 'rejected')" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Reject"><XCircleIcon class="h-5 w-5"/></button>
-                  </div>
-                  <div v-else-if="!props.canManage && request.status === 'pending'">
-                    <button @click="cancelLeave(request)" class="p-1.5 rounded-md hover:bg-red-100 text-red-600" title="Cancel Request"><TrashIcon class="h-5 w-5" /></button>
-                  </div>
-                 <div v-else-if="!props.canManage && !request.supporting_document_path">
-  <!-- Show Upload Document button only if no document uploaded yet -->
-  <button @click="openUploadModal(request.id)" class="text-indigo-600 hover:underline text-sm">
-    Upload Document
-  </button>
-</div>
-
+                    Cancel
+                  </button>
+                  <span v-else class="text-gray-400">-</span>
                 </td>
               </tr>
             </tbody>
@@ -520,12 +597,70 @@ const cancelLeave = (request) => {
 </template>
 
 <style>
-.fc-toolbar.fc-header-toolbar {
-  display: flex;
-  justify-content: space-between;
+.fc {
+  @apply text-gray-800;
 }
-.fc-toolbar.fc-header-toolbar .fc-toolbar-chunk:first-of-type {
-  flex-grow: 1;
-  text-align: left;
+
+.fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 0.5em;
 }
+
+.fc .fc-toolbar-title {
+  font-size: 1.1em;
+  @apply font-semibold;
+}
+
+.fc .fc-button {
+  @apply bg-white border-gray-300 text-gray-700 hover:bg-gray-50;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  @apply bg-blue-600 text-white;
+}
+
+.fc .fc-daygrid-day-frame {
+  @apply min-h-[2em];
+}
+
+.fc .fc-daygrid-day-number {
+  @apply p-1 text-gray-800 hover:text-blue-600;
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  @apply bg-blue-50;
+}
+
+.fc .fc-daygrid-day-top {
+  @apply flex-col items-start;
+}
+
+.fc .fc-col-header-cell {
+  @apply bg-gray-50;
+}
+
+.fc .fc-col-header-cell-cushion {
+  @apply text-gray-700 text-sm font-medium py-2;
+}
+
+.fc .fc-daygrid-day-events {
+  @apply mt-1;
+}
+
+.fc .fc-event {
+  @apply text-white text-xs rounded p-1 mb-1;
+}
+
+.fc .fc-daygrid-day.fc-day-disabled {
+  @apply bg-gray-50;
+}
+
+.fc .fc-daygrid-day.fc-day-disabled .fc-daygrid-day-number {
+  @apply text-gray-400;
+}
+
+select option {
+  position: relative;
+}
+
+
 </style>
