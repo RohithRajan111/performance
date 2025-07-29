@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests\Leave;
 
-use App\Models\LeaveApplication;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
-use Carbon\Carbon;
 
 class StoreLeaveRequest extends FormRequest
 {
@@ -37,7 +36,7 @@ class StoreLeaveRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'reason' => ['required', 'string', 'min:10'],
             'leave_type' => ['required', 'string', 'in:annual,sick,personal,emergency,maternity,paternity'],
-            // New session fields instead of old day_type and half_session
+            // Session fields for half-day leave
             'start_half_session' => ['nullable', 'in:morning,afternoon'],
             'end_half_session' => ['nullable', 'in:morning,afternoon'],
         ];
