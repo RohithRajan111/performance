@@ -68,7 +68,6 @@ class StoreLeave
         // Get leave statistics to avoid multiple queries
         $leaveStats = $user->getLeaveStatistics();
         $remainingBalance = $leaveStats['remaining_balance'];
-        $salaryDeductionDays = 0;
         $leaveToDeduct = 0;
 
         switch ($leaveType) {
@@ -91,7 +90,7 @@ class StoreLeave
                     $leaveToDeduct = $requestedDays;
                 } else {
                     $leaveToDeduct = $remainingBalance;
-                    $salaryDeductionDays = $requestedDays - $remainingBalance;
+                    // Note: Remaining days would be unpaid (not tracked in database)
                 }
                 break;
 
@@ -143,7 +142,6 @@ class StoreLeave
             'start_half_session' => $dayType === 'half' ? $data['start_half_session'] : null,
             'end_half_session' => ($dayType === 'half' && $start->ne($end)) ? $data['end_half_session'] : ($dayType === 'half' ? $data['start_half_session'] : null),
             'leave_days' => $requestedDays,
-            'salary_deduction_days' => $salaryDeductionDays,
             'status' => 'pending',
         ]);
 

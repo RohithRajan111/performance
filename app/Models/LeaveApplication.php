@@ -24,7 +24,10 @@ class LeaveApplication extends Model
         'start_half_session',
         'end_half_session',
         'leave_days',
-        'salary_deduction_days',
+        'rejection_reason',
+        'comments',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
@@ -32,7 +35,6 @@ class LeaveApplication extends Model
         'end_date' => 'date',
         'approved_at' => 'datetime',
         'leave_days' => 'float',
-        'salary_deduction_days' => 'float',
     ];
 
     // Set default values for attributes
