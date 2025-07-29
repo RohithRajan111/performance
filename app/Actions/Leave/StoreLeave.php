@@ -4,12 +4,17 @@ namespace App\Actions\Leave;
 
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveRequestSubmitted;
+use App\Services\LeaveService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
 class StoreLeave
 {
+    public function __construct(
+        private LeaveService $leaveService
+    ) {}
+
     /**
      * Handles the creation of a new leave application.
      *
@@ -39,7 +44,6 @@ class StoreLeave
         }
 
         // --- Leave Days Calculation ---
-        $requestedDays = 0;
         if ($dayType === 'half') {
             // Validate that the required session fields are present
             if (empty($data['start_half_session'])) {
@@ -48,29 +52,9 @@ class StoreLeave
             if ($start->ne($end) && empty($data['end_half_session'])) {
                 throw ValidationException::withMessages(['end_half_session' => 'The end session is required for a multi-day half-day leave.']);
             }
-
-            if ($start->isSameDay($end)) {
-                // Simple case: A single half-day leave is always 0.5 days.
-                $requestedDays = 0.5;
-            } else {
-                // Complex case: A date range involving half-days.
-                $totalDays = $start->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $end) + 1;
-                $deduction = 0;
-
-                // If leave starts in the afternoon, the morning was worked (deduct 0.5)
-                if ($data['start_half_session'] === 'afternoon') {
-                    $deduction += 0.5;
-                }
-                // If leave ends in the morning, the afternoon will be worked (deduct 0.5)
-                if ($data['end_half_session'] === 'morning') {
-                    $deduction += 0.5;
-                }
-                $requestedDays = $totalDays - $deduction;
-            }
-        } else {
-            // Full day calculation: Count all days in the range.
-            $requestedDays = $start->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $end) + 1;
         }
+
+        $requestedDays = $this->leaveService->calculateLeaveDays($start, $end, $dayType, $data);
         
         // Ensure the leave period is valid
         if ($requestedDays <= 0) {
@@ -80,7 +64,10 @@ class StoreLeave
 
         // --- Leave Balance and Deduction Logic ---
         $leaveType = $data['leave_type'] ?? 'annual';
-        $remainingBalance = $user->getRemainingLeaveBalance();
+        
+        // Get leave statistics to avoid multiple queries
+        $leaveStats = $user->getLeaveStatistics();
+        $remainingBalance = $leaveStats['remaining_balance'];
         $salaryDeductionDays = 0;
         $leaveToDeduct = 0;
 
@@ -137,14 +124,7 @@ class StoreLeave
         }
 
         // --- Overlapping Leave Check ---
-        $overlapping = $user->leaveApplications()
-            ->where('status', '!=', 'rejected')
-            ->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end])
-                  ->orWhere(fn ($q2) => $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end));
-            })
-            ->exists();
+        $overlapping = $this->leaveService->hasOverlappingLeave($user, $start, $end);
 
         if ($overlapping) {
             throw ValidationException::withMessages([
@@ -167,6 +147,9 @@ class StoreLeave
             'status' => 'pending',
         ]);
 
+        // Clear user's leave cache since data has changed
+        $this->leaveService->clearUserLeaveCache($user);
+        
         $this->sendNotifications($leaveApplication);
 
         return $leaveApplication;

@@ -46,24 +46,25 @@ class StoreLeaveRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function ($validator) {
-            $userId = $this->user()->id;
-            $start = $this->input('start_date');
-            $end = $this->input('end_date');
-
-            $hasOverlap = LeaveApplication::where('user_id', $userId)
-                ->where(function ($query) use ($start, $end) {
-                    $query->whereBetween('start_date', [$start, $end])
-                        ->orWhereBetween('end_date', [$start, $end])
-                        ->orWhere(function ($query) use ($start, $end) {
-                            $query->where('start_date', '<=', $start)
-                                ->where('end_date', '>=', $end);
-                        });
-                })
-                ->whereIn('status', ['pending', 'approved'])
-                ->exists();
-
-            if ($hasOverlap) {
-                $validator->errors()->add('start_date', 'These dates overlap with an existing leave request.');
+            // Basic validation - detailed overlap check is handled in StoreLeave action
+            // to avoid duplicate database queries and maintain consistency
+            
+            $startDate = Carbon::parse($this->input('start_date'));
+            $endDate = Carbon::parse($this->input('end_date'));
+            
+            // Validate date range makes sense
+            if ($startDate->gt($endDate)) {
+                $validator->errors()->add('end_date', 'End date must be after or equal to start date.');
+            }
+            
+            // Validate half-day session requirements
+            $startSession = $this->input('start_half_session');
+            $endSession = $this->input('end_half_session');
+            
+            if ($startSession || $endSession) {
+                if ($startSession && !$endSession && !$startDate->isSameDay($endDate)) {
+                    $validator->errors()->add('end_half_session', 'End session is required for multi-day half-day leave.');
+                }
             }
         });
     }
