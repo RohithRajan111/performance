@@ -352,47 +352,200 @@ onMounted(() => {
             </div>
 
             <!-- Leave Requests History Table -->
-             <!-- ** THE FIX IS HERE: `overflow-hidden` has been removed ** -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200">
                 <div class="p-6 border-b border-slate-200">
-                    <h3 class="text-lg font-bold text-slate-800">{{ canManage ? 'Employee Leave Requests' : 'Your Leave History' }}</h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <h3 class="text-lg font-bold text-slate-800">{{ canManage ? 'Employee Leave Requests' : 'Your Leave History' }}</h3>
+                        <div v-if="canManage" class="mt-2 sm:mt-0 text-sm text-slate-500">
+                            Total Requests: {{ leaveRequests.length }}
+                        </div>
+                    </div>
                 </div>
                 <div v-if="leaveRequests.length === 0" class="p-12 text-center">
                     <div class="text-slate-400 text-5xl mb-3">📂</div>
                     <p class="font-medium text-slate-600">No leave requests found.</p>
                 </div>
-                <div v-else class="overflow-x-auto">
+                <!-- Desktop Table View -->
+                <div class="hidden lg:block overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-200">
                         <thead class="bg-slate-50">
                             <tr>
-                                <th v-if="canManage" scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Employee</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Dates</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                                <th v-if="canManage" scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-48">Employee</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-40">Dates</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Type</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Duration</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Status</th>
+                                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-44">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-slate-200">
                             <tr v-for="request in leaveRequests" :key="request.id" class="hover:bg-slate-50">
-                                <td v-if="canManage" class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><div class="flex-shrink-0 h-8 w-8"><div class="h-8 w-8 rounded-full bg-slate-300 flex items-center justify-center"><span class="text-sm font-medium text-slate-700">{{ request.user?.name?.charAt(0)?.toUpperCase() }}</span></div></div><div class="ml-3"><div class="text-sm font-medium text-slate-900">{{ request.user?.name }}</div><div class="text-sm text-slate-500">{{ request.user?.email }}</div></div></div></td>
-                                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-slate-900">{{ formatDate(request.start_date) }}<span v-if="request.start_date !== request.end_date"> - {{ formatDate(request.end_date) }}</span></div><div v-if="request.day_type === 'half'" class="text-xs text-slate-500 mt-1">{{ request.start_half_session || 'full' }} session<span v-if="request.start_date !== request.end_date"> to {{ request.end_half_session || 'full' }} session</span></div></td>
-                                <td class="px-6 py-4 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize" :class="{'bg-blue-100 text-blue-800': request.leave_type === 'annual', 'bg-green-100 text-green-800': request.leave_type === 'sick', 'bg-yellow-100 text-yellow-800': request.leave_type === 'personal', 'bg-red-100 text-red-800': request.leave_type === 'emergency', 'bg-pink-100 text-pink-800': request.leave_type === 'maternity', 'bg-purple-100 text-purple-800': request.leave_type === 'paternity'}">{{ request.leave_type }}</span></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">{{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}</td>
-                                <td class="px-6 py-4 text-sm text-slate-500 max-w-xs"><div class="truncate" :title="request.reason">{{ request.reason }}</div></td>
-                                <td class="px-6 py-4 whitespace-nowrap"><span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center"><span class="mr-1">{{ statusConfig[request.status].icon }}</span><span class="capitalize">{{ request.status }}</span></span></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div v-if="canManage && request.status === 'pending'" class="flex justify-end space-x-2">
-                                        <button @click="updateStatus(request, 'approved')" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">✓ Approve</button>
-                                        <button @click="updateStatus(request, 'rejected')" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">✗ Reject</button>
+                                <td v-if="canManage" class="px-4 py-4 whitespace-nowrap w-48">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-8 w-8">
+                                            <div class="h-8 w-8 rounded-full bg-slate-300 flex items-center justify-center">
+                                                <span class="text-sm font-medium text-slate-700">{{ request.user?.name?.charAt(0)?.toUpperCase() }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-3 min-w-0 flex-1">
+                                            <div class="text-sm font-medium text-slate-900 truncate">{{ request.user?.name }}</div>
+                                            <div class="text-sm text-slate-500 truncate">{{ request.user?.email }}</div>
+                                        </div>
                                     </div>
-                                    <button v-else-if="!canManage && request.status === 'pending'" @click="cancelLeave(request)" class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Cancel</button>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap w-40">
+                                    <div class="text-sm text-slate-900">
+                                        {{ formatDate(request.start_date) }}
+                                        <span v-if="request.start_date !== request.end_date"> - {{ formatDate(request.end_date) }}</span>
+                                    </div>
+                                    <div v-if="request.day_type === 'half'" class="text-xs text-slate-500 mt-1">
+                                        {{ request.start_half_session || 'full' }} session
+                                        <span v-if="request.start_date !== request.end_date"> to {{ request.end_half_session || 'full' }} session</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap w-24">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize" :class="{
+                                        'bg-blue-100 text-blue-800': request.leave_type === 'annual', 
+                                        'bg-green-100 text-green-800': request.leave_type === 'sick', 
+                                        'bg-yellow-100 text-yellow-800': request.leave_type === 'personal', 
+                                        'bg-red-100 text-red-800': request.leave_type === 'emergency', 
+                                        'bg-pink-100 text-pink-800': request.leave_type === 'maternity', 
+                                        'bg-purple-100 text-purple-800': request.leave_type === 'paternity'
+                                    }">
+                                        {{ request.leave_type }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap w-20 text-sm text-slate-900 font-medium">
+                                    {{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}
+                                </td>
+                                <td class="px-4 py-4 text-sm text-slate-500 max-w-xs">
+                                    <div class="truncate" :title="request.reason">{{ request.reason }}</div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap w-24">
+                                    <span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center">
+                                        <span class="mr-1">{{ statusConfig[request.status].icon }}</span>
+                                        <span class="capitalize">{{ request.status }}</span>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium w-44">
+                                    <div v-if="canManage && request.status === 'pending'" class="flex justify-end gap-2 min-w-0">
+                                        <button 
+                                            @click="updateStatus(request, 'approved')" 
+                                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 whitespace-nowrap"
+                                        >
+                                            ✓ Approve
+                                        </button>
+                                        <button 
+                                            @click="updateStatus(request, 'rejected')" 
+                                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 whitespace-nowrap"
+                                        >
+                                            ✗ Reject
+                                        </button>
+                                    </div>
+                                    <button 
+                                        v-else-if="!canManage && request.status === 'pending'" 
+                                        @click="cancelLeave(request)" 
+                                        class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 whitespace-nowrap"
+                                    >
+                                        Cancel
+                                    </button>
                                     <span v-else class="text-slate-400 text-sm">-</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Card View -->
+                <div class="lg:hidden space-y-4 p-4">
+                    <div v-for="request in leaveRequests" :key="request.id" class="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                        <!-- Employee Info (for managers) -->
+                        <div v-if="canManage" class="flex items-center mb-3 pb-3 border-b border-slate-200">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-slate-300 flex items-center justify-center">
+                                    <span class="text-base font-medium text-slate-700">{{ request.user?.name?.charAt(0)?.toUpperCase() }}</span>
+                                </div>
+                            </div>
+                            <div class="ml-3 min-w-0 flex-1">
+                                <div class="text-base font-medium text-slate-900">{{ request.user?.name }}</div>
+                                <div class="text-sm text-slate-500">{{ request.user?.email }}</div>
+                            </div>
+                        </div>
+
+                        <!-- Leave Details -->
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Dates</div>
+                                <div class="text-sm text-slate-900">
+                                    {{ formatDate(request.start_date) }}
+                                    <span v-if="request.start_date !== request.end_date"> - {{ formatDate(request.end_date) }}</span>
+                                </div>
+                                <div v-if="request.day_type === 'half'" class="text-xs text-slate-500 mt-1">
+                                    {{ request.start_half_session || 'full' }} session
+                                    <span v-if="request.start_date !== request.end_date"> to {{ request.end_half_session || 'full' }} session</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Duration</div>
+                                <div class="text-sm text-slate-900 font-medium">
+                                    {{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Type</div>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize" :class="{
+                                    'bg-blue-100 text-blue-800': request.leave_type === 'annual', 
+                                    'bg-green-100 text-green-800': request.leave_type === 'sick', 
+                                    'bg-yellow-100 text-yellow-800': request.leave_type === 'personal', 
+                                    'bg-red-100 text-red-800': request.leave_type === 'emergency', 
+                                    'bg-pink-100 text-pink-800': request.leave_type === 'maternity', 
+                                    'bg-purple-100 text-purple-800': request.leave_type === 'paternity'
+                                }">
+                                    {{ request.leave_type }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Status</div>
+                                <span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center">
+                                    <span class="mr-1">{{ statusConfig[request.status].icon }}</span>
+                                    <span class="capitalize">{{ request.status }}</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason</div>
+                            <div class="text-sm text-slate-700">{{ request.reason }}</div>
+                        </div>
+
+                        <!-- Action Buttons - Always Visible -->
+                        <div v-if="canManage && request.status === 'pending'" class="flex flex-col sm:flex-row gap-3 pt-3 border-t border-slate-200">
+                            <button 
+                                @click="updateStatus(request, 'approved')" 
+                                class="flex-1 inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
+                            >
+                                ✓ Approve Request
+                            </button>
+                            <button 
+                                @click="updateStatus(request, 'rejected')" 
+                                class="flex-1 inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                            >
+                                ✗ Reject Request
+                            </button>
+                        </div>
+                        <div v-else-if="!canManage && request.status === 'pending'" class="pt-3 border-t border-slate-200">
+                            <button 
+                                @click="cancelLeave(request)" 
+                                class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                            >
+                                Cancel Request
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
