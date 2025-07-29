@@ -28,7 +28,12 @@ class StoreLeave
         info($data);
         $start = Carbon::parse($data['start_date']);
         $end = Carbon::parse($data['end_date']);
+        
+        // Determine day type based on session fields if not explicitly provided
         $dayType = $data['day_type'] ?? 'full';
+        if (!isset($data['day_type']) && (isset($data['start_half_session']) || isset($data['end_half_session']))) {
+            $dayType = 'half';
+        }
 
         // --- Basic Date Validations ---
         if ($start->gt($end)) {
@@ -55,6 +60,16 @@ class StoreLeave
         }
 
         $requestedDays = $this->leaveService->calculateLeaveDays($start, $end, $dayType, $data);
+        
+        // Debug information
+        \Log::info('Leave calculation debug', [
+            'day_type' => $dayType,
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'start_half_session' => $data['start_half_session'] ?? null,
+            'end_half_session' => $data['end_half_session'] ?? null,
+            'calculated_days' => $requestedDays
+        ]);
         
         // Ensure the leave period is valid
         if ($requestedDays <= 0) {

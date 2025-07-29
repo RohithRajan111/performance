@@ -36,6 +36,7 @@ class StoreLeaveRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'reason' => ['required', 'string', 'min:10'],
             'leave_type' => ['required', 'string', 'in:annual,sick,personal,emergency,maternity,paternity'],
+            'day_type' => ['nullable', 'string', 'in:full,half'],
             // Session fields for half-day leave
             'start_half_session' => ['nullable', 'in:morning,afternoon'],
             'end_half_session' => ['nullable', 'in:morning,afternoon'],
@@ -50,6 +51,7 @@ class StoreLeaveRequest extends FormRequest
             
             $startDate = Carbon::parse($this->input('start_date'));
             $endDate = Carbon::parse($this->input('end_date'));
+            $dayType = $this->input('day_type');
             
             // Validate date range makes sense
             if ($startDate->gt($endDate)) {
@@ -60,8 +62,13 @@ class StoreLeaveRequest extends FormRequest
             $startSession = $this->input('start_half_session');
             $endSession = $this->input('end_half_session');
             
-            if ($startSession || $endSession) {
-                if ($startSession && !$endSession && !$startDate->isSameDay($endDate)) {
+            // If day_type is half or if session fields are provided, ensure proper validation
+            if ($dayType === 'half' || $startSession || $endSession) {
+                if (!$startSession) {
+                    $validator->errors()->add('start_half_session', 'Start session is required for half-day leave.');
+                }
+                
+                if (!$startDate->isSameDay($endDate) && !$endSession) {
                     $validator->errors()->add('end_half_session', 'End session is required for multi-day half-day leave.');
                 }
             }

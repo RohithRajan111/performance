@@ -150,26 +150,49 @@ class LeaveService
     /**
      * Calculate leave days for a date range considering weekends and half days
      */
-    public function calculateLeaveDays(Carbon $startDate, Carbon $endDate, string $dayType = 'full', array $sessions = []): float
+    public function calculateLeaveDays(Carbon $startDate, Carbon $endDate, string $dayType = 'full', array $data = []): float
     {
+        // Debug logging
+        \Log::info('LeaveService calculateLeaveDays called', [
+            'startDate' => $startDate->toDateString(),
+            'endDate' => $endDate->toDateString(),
+            'dayType' => $dayType,
+            'start_half_session' => $data['start_half_session'] ?? 'not set',
+            'end_half_session' => $data['end_half_session'] ?? 'not set'
+        ]);
+
         if ($dayType === 'half') {
             if ($startDate->isSameDay($endDate)) {
+                // Single day half-day leave is always 0.5 days
+                \Log::info('Calculated half-day single day', ['result' => 0.5]);
                 return 0.5;
             } else {
+                // Multi-day leave with half-day sessions
                 $totalDays = $startDate->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $endDate) + 1;
                 $deduction = 0;
 
-                if (($sessions['start_half_session'] ?? null) === 'afternoon') {
+                // If leave starts in the afternoon, the morning was worked (deduct 0.5)
+                if (($data['start_half_session'] ?? null) === 'afternoon') {
                     $deduction += 0.5;
                 }
-                if (($sessions['end_half_session'] ?? null) === 'morning') {
+                // If leave ends in the morning, the afternoon will be worked (deduct 0.5)
+                if (($data['end_half_session'] ?? null) === 'morning') {
                     $deduction += 0.5;
                 }
                 
-                return max(0, $totalDays - $deduction);
+                $result = max(0.5, $totalDays - $deduction);
+                \Log::info('Calculated multi-day half-day', [
+                    'totalDays' => $totalDays,
+                    'deduction' => $deduction,
+                    'result' => $result
+                ]);
+                return $result;
             }
         }
         
-        return $startDate->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $endDate) + 1;
+        // Full day calculation: Count weekdays only
+        $result = $startDate->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $endDate) + 1;
+        \Log::info('Calculated full day', ['result' => $result]);
+        return $result;
     }
 }
