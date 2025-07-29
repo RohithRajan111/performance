@@ -2,6 +2,7 @@
 
 namespace App\Actions\Leave;
 
+use App\Models\User;
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveRequestSubmitted;
 use Carbon\Carbon;

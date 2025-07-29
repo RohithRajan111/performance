@@ -1,15 +1,14 @@
-<!-- Leave/Index.vue -->
-
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import InputError from '@/Components/InputError.vue'
 import InputLabel from '@/Components/InputLabel.vue'
 import PrimaryButton from '@/Components/PrimaryButton.vue'
-import { Head, useForm, router } from '@inertiajs/vue3'
-import { ref, watch, onMounted } from 'vue'
+import { Head, useForm, router, usePage } from '@inertiajs/vue3'
+import { ref, watch, onMounted, computed } from 'vue' // It's good practice to list all imports
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
+
 
 const props = defineProps({
   leaveRequests: Array,
@@ -17,6 +16,11 @@ const props = defineProps({
   highlightedDates: Array,
   remainingLeaveBalance: Number,
 })
+
+// --- FIX START ---
+// The usePage() hook must be called to get access to the page props (like auth, ziggy, etc.)
+const page = usePage();
+// --- FIX END ---
 
 const leaveColors = {
   pending: '#fbbf24',
@@ -51,7 +55,9 @@ function toISODateOnly(date) {
   return `${year}-${month}-${day}`
 }
 
-const currentUserId = page.props.auth.user.id
+// Now `page` is defined and can be used to safely access props.
+// Using a computed property is recommended for reactivity.
+const currentUserId = computed(() => page.props.auth.user.id)
 
 function getBackgroundEvents() {
   return (props.highlightedDates || []).map(ev => ({
@@ -663,6 +669,5 @@ const leaveTypeDescriptions = {
 select option {
   position: relative;
 }
-
 
 </style>
