@@ -79,7 +79,7 @@ END")
                 'title' => ucfirst($request->leave_type).' Leave',
                 'class' => $request->status,
                 'color_category' => $this->getLeaveColorCategory($request),
-                'user_id' => $request->user_id,  
+                'user_id' => $request->user_id,
             ])->values()->all();
 
         return [

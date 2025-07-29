@@ -167,6 +167,7 @@ class LeaveApplicationController extends Controller
 
         return Redirect::route('leave.index')->with('success', 'Leave request canceled.');
     }
+
     public function uploadDocument(Request $request, LeaveApplication $leave_application)
     {
         if ($leave_application->user_id !== auth()->id()) {
@@ -190,5 +191,4 @@ class LeaveApplicationController extends Controller
 
         return redirect()->back()->with('success', 'Supporting document uploaded successfully.');
     }
-
 }
