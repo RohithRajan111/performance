@@ -167,4 +167,28 @@ class LeaveApplicationController extends Controller
 
         return Redirect::route('leave.index')->with('success', 'Leave request canceled.');
     }
+    public function uploadDocument(Request $request, LeaveApplication $leave_application)
+    {
+        if ($leave_application->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'supporting_document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        $path = $request->file('supporting_document')->store('leave_documents/'.auth()->id(), 'public');
+
+        // Delete old file if exists
+        if ($leave_application->supporting_document_path) {
+            Storage::disk('public')->delete($leave_application->supporting_document_path);
+        }
+
+        $leave_application->update([
+            'supporting_document_path' => $path,
+        ]);
+
+        return redirect()->back()->with('success', 'Supporting document uploaded successfully.');
+    }
+
 }

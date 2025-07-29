@@ -13,8 +13,8 @@ class StoreLeave
     /**
      * Handles the creation of a new leave application.
      *
-     * @param array $data The validated data from the request.
-     * @return LeaveApplication
+     * @param  array  $data  The validated data from the request.
+     *
      * @throws ValidationException
      */
     public function handle(array $data): LeaveApplication
@@ -32,7 +32,7 @@ class StoreLeave
             ]);
         }
 
-        if ($start->isPast() && !$start->isToday()) {
+        if ($start->isPast() && ! $start->isToday()) {
             throw ValidationException::withMessages([
                 'start_date' => ['Cannot apply for leave in the past.'],
             ]);
@@ -54,7 +54,7 @@ class StoreLeave
                 $requestedDays = 0.5;
             } else {
                 // Complex case: A date range involving half-days.
-                $totalDays = $start->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $end) + 1;
+                $totalDays = $start->diffInDaysFiltered(fn ($date) => ! $date->isWeekend(), $end) + 1;
                 $deduction = 0;
 
                 // If leave starts in the afternoon, the morning was worked (deduct 0.5)
@@ -69,14 +69,13 @@ class StoreLeave
             }
         } else {
             // Full day calculation: Count all days in the range.
-            $requestedDays = $start->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $end) + 1;
-        }
-        
-        // Ensure the leave period is valid
-        if ($requestedDays <= 0) {
-             throw ValidationException::withMessages(['end_half_session' => 'The selected leave period results in zero or fewer leave days. Please check your start and end sessions.']);
+            $requestedDays = $start->diffInDaysFiltered(fn ($date) => ! $date->isWeekend(), $end) + 1;
         }
 
+        // Ensure the leave period is valid
+        if ($requestedDays <= 0) {
+            throw ValidationException::withMessages(['end_half_session' => 'The selected leave period results in zero or fewer leave days. Please check your start and end sessions.']);
+        }
 
         // --- Leave Balance and Deduction Logic ---
         $leaveType = $data['leave_type'] ?? 'annual';
@@ -141,8 +140,8 @@ class StoreLeave
             ->where('status', '!=', 'rejected')
             ->where(function ($q) use ($start, $end) {
                 $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end])
-                  ->orWhere(fn ($q2) => $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end));
+                    ->orWhereBetween('end_date', [$start, $end])
+                    ->orWhere(fn ($q2) => $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end));
             })
             ->exists();
 
@@ -174,8 +173,6 @@ class StoreLeave
 
     /**
      * Sends notifications to the designated leave approvers.
-     *
-     * @param LeaveApplication $leaveApplication
      */
     private function sendNotifications(LeaveApplication $leaveApplication): void
     {

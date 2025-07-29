@@ -50,4 +50,8 @@ class LeaveApplication extends Model
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
+    public function getSupportingDocumentUrlAttribute()
+{
+    return $this->supporting_document_path ? Storage::url($this->supporting_document_path) : null;
+}   
 }
