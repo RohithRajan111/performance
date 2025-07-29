@@ -23,17 +23,15 @@ class LeaveCalendarController extends Controller
         $startDate = Carbon::parse($start_date);
         $endDate = Carbon::parse($end_date);
 
-        // 2. Build users query
+        // 2. Build users query with optimized leave applications loading
         $usersQuery = User::query()
             ->with([
                 'leaveApplications' => function ($query) use ($startDate, $endDate) {
-                    $query->where('status', 'approved')
-                        ->where(function ($q) use ($startDate, $endDate) {
-                            $q->where('start_date', '<=', $endDate)
-                              ->where('end_date', '>=', $startDate);
-                        });
+                    $query->approved()
+                        ->overlapsWith($startDate, $endDate)
+                        ->select('id', 'user_id', 'start_date', 'end_date', 'leave_type', 'day_type', 'leave_days');
                 },
-                'teams'
+                'teams:id,name'
             ])
             ->select('id', 'name')
             ->orderBy('name');
