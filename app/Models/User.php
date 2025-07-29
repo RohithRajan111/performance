@@ -10,6 +10,10 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -63,38 +67,112 @@ class User extends Authenticatable
 
     /**
      * Get remaining leave balance for current year
+     * Optimized to use scopes and caching
      */
     public function getRemainingLeaveBalance(): float
     {
+        static $cachedBalance = null;
+        static $cachedUserId = null;
+        static $cachedYear = null;
+
+        $currentYear = now()->year;
+
+        // Use cached result if for same user and year
+        if ($cachedBalance !== null && $cachedUserId === $this->id && $cachedYear === $currentYear) {
+            return $cachedBalance;
+        }
+
         $usedLeaveDays = $this->leaveApplications()
-            ->where('status', '!=', 'rejected')
-            ->whereYear('start_date', now()->year)
-            ->sum('leave_days'); // sum fractional days directly
+            ->approved()
+            ->currentYear()
+            ->sum('leave_days');
 
-        $totalLeaveBalance = $this->leave_balance ?? 20; // or your default leave balance value
-
+        $totalLeaveBalance = $this->leave_balance ?? 20;
         $remaining = max(0, $totalLeaveBalance - $usedLeaveDays);
+
+        // Cache the result
+        $cachedBalance = $remaining;
+        $cachedUserId = $this->id;
+        $cachedYear = $currentYear;
 
         return $remaining;
     }
 
     /**
      * Get used leave days for current year
+     * Optimized version using scopes
      */
     public function getUsedLeaveDays(): float
     {
-        return $this->leaveApplications()
-            ->where('status', 'approved')
-            ->whereYear('start_date', now()->year)
-            ->sum('leave_days'); // sum fractional days instead of date difference
+        static $cachedUsedDays = null;
+        static $cachedUserId = null;
+        static $cachedYear = null;
+
+        $currentYear = now()->year;
+
+        // Use cached result if for same user and year
+        if ($cachedUsedDays !== null && $cachedUserId === $this->id && $cachedYear === $currentYear) {
+            return $cachedUsedDays;
+        }
+
+        $usedDays = $this->leaveApplications()
+            ->approved()
+            ->currentYear()
+            ->sum('leave_days');
+
+        // Cache the result
+        $cachedUsedDays = $usedDays;
+        $cachedUserId = $this->id;
+        $cachedYear = $currentYear;
+
+        return $usedDays;
     }
 
     /**
      * Get pending leave applications
+     * Optimized version using scopes
      */
     public function getPendingLeaveApplications()
     {
-        return $this->leaveApplications()->where('status', 'pending')->get();
+        return $this->leaveApplications()
+            ->pending()
+            ->orderByStatusPriority()
+            ->latest()
+            ->get();
+    }
+
+    /**
+     * Get leave statistics for current year
+     * Single query to get all leave statistics at once
+     */
+    public function getLeaveStatistics(): array
+    {
+        $stats = $this->leaveApplications()
+            ->currentYear()
+            ->selectRaw('
+                status,
+                COUNT(*) as count,
+                SUM(leave_days) as total_days,
+                AVG(leave_days) as avg_days
+            ')
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
+
+        $totalLeaveBalance = $this->leave_balance ?? 20;
+        $usedDays = $stats->get('approved')->total_days ?? 0;
+        $pendingDays = $stats->get('pending')->total_days ?? 0;
+
+        return [
+            'total_balance' => $totalLeaveBalance,
+            'used_days' => $usedDays,
+            'pending_days' => $pendingDays,
+            'remaining_balance' => max(0, $totalLeaveBalance - $usedDays),
+            'available_balance' => max(0, $totalLeaveBalance - $usedDays - $pendingDays),
+            'approved_applications' => $stats->get('approved')->count ?? 0,
+            'pending_applications' => $stats->get('pending')->count ?? 0,
+            'rejected_applications' => $stats->get('rejected')->count ?? 0,
+        ];
     }
 
     // === TIME LOGS ===
@@ -171,6 +249,10 @@ class User extends Authenticatable
     public function childrenRecursive()
     {
         return $this->children()->with('childrenRecursive');
+    }
+    public function descendants(): HasMany
+    {
+        return $this->children()->with('descendants');
     }
 
     /**
@@ -364,4 +446,5 @@ class User extends Authenticatable
             }
         );
     }
+
 }

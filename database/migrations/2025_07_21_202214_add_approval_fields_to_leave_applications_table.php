@@ -1,17 +1,22 @@
 <?php
 
-// database/migrations/xxxx_xx_xx_add_approval_fields_to_leave_applications_table.php
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
         Schema::table('leave_applications', function (Blueprint $table) {
-            $table->unsignedBigInteger('approved_by')->nullable()->after('status');
+            // ✅ FIX: Add the 'rejection_reason' column first. We'll place it after 'status'.
+            $table->text('rejection_reason')->nullable()->after('status');
+
+            // Now, these lines will work because 'rejection_reason' exists.
+            $table->foreignId('approved_by')->nullable()->constrained('users')->onDelete('set null')->after('rejection_reason');
             $table->timestamp('approved_at')->nullable()->after('approved_by');
 
             // Add foreign key constraint if you want
@@ -19,11 +24,15 @@ return new class extends Migration
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
         Schema::table('leave_applications', function (Blueprint $table) {
+            // ✅ FIX: Make sure the down method can remove ALL new columns.
             $table->dropForeign(['approved_by']);
-            $table->dropColumn(['approved_by', 'approved_at']);
+            $table->dropColumn(['rejection_reason', 'approved_by', 'approved_at']);
         });
     }
 };

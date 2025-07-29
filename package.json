@@ -22,9 +22,11 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
+        "@balkangraph/orgchart.js": "^8.19.38",
         "@fullcalendar/core": "^6.1.18",
         "@fullcalendar/daygrid": "^6.1.18",
         "@fullcalendar/interaction": "^6.1.18",
+        "@fullcalendar/timegrid": "^6.1.18",
         "@fullcalendar/vue3": "^6.1.18",
         "@he-tree/vue": "^2.9.4",
         "@heroicons/vue": "^2.2.0",
@@ -32,6 +34,7 @@
         "@vuepic/vue-datepicker": "^11.0.2",
         "chart.js": "^4.5.0",
         "date-fns": "^4.1.0",
+        "lodash": "^4.17.21",
         "lodash-es": "^4.17.21",
         "v-calendar": "^3.1.2",
         "vue-cal": "^4.10.2",
