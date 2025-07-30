@@ -58,12 +58,11 @@ class GetLeave
         if ($user->can('manage leave applications')) {
             $requests = LeaveApplication::with(['user:id,name'])
                 ->orderByRaw("CASE status
-    WHEN 'pending' THEN 1
-    WHEN 'approved' THEN 2
-    WHEN 'rejected' THEN 3
-    ELSE 4
-END")
-
+                    WHEN 'pending' THEN 1
+                    WHEN 'approved' THEN 2
+                    WHEN 'rejected' THEN 3
+                    ELSE 4
+                    END")
                 ->latest()
                 ->get();
         } else {
