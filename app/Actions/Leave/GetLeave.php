@@ -89,8 +89,8 @@ class GetLeave
             'leaveRequests' => $requests,
             'canManage' => $canManage,
             'highlightedDates' => $highlighted,
-            'remainingLeaveBalance' => $leaveStats['remaining_balance'],
-            'leaveStatistics' => $leaveStats,
+            // 'remainingLeaveBalance' => $leaveStats['remaining_balance'],
+            // 'leaveStatistics' => $leaveStats,
         ];
     }
 }

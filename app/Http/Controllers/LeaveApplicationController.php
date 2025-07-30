@@ -75,7 +75,7 @@ class LeaveApplicationController extends Controller
 
         return redirect()->back()->with('success', 'Supporting document uploaded successfully.');
     }
-}
+
 
 
      public function showLogs(Request $request)
