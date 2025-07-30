@@ -20,8 +20,8 @@ class StoreLeave
     /**
      * Handles the creation of a new leave application.
      *
-     * @param array $data The validated data from the request.
-     * @return LeaveApplication
+     * @param  array  $data  The validated data from the request.
+     *
      * @throws ValidationException
      */
     public function handle(array $data): LeaveApplication
@@ -44,7 +44,7 @@ class StoreLeave
             ]);
         }
 
-        if ($start->isPast() && !$start->isToday()) {
+        if ($start->isPast() && ! $start->isToday()) {
             throw ValidationException::withMessages([
                 'start_date' => ['Cannot apply for leave in the past.'],
             ]);
@@ -59,25 +59,34 @@ class StoreLeave
             if ($start->ne($end) && empty($data['end_half_session'])) {
                 throw ValidationException::withMessages(['end_half_session' => 'The end session is required for a multi-day half-day leave.']);
             }
+
+            if ($start->isSameDay($end)) {
+                // Simple case: A single half-day leave is always 0.5 days.
+                $requestedDays = 0.5;
+            } else {
+                // Complex case: A date range involving half-days.
+                $totalDays = $start->diffInDaysFiltered(fn ($date) => ! $date->isWeekend(), $end) + 1;
+                $deduction = 0;
+
+                // If leave starts in the afternoon, the morning was worked (deduct 0.5)
+                if ($data['start_half_session'] === 'afternoon') {
+                    $deduction += 0.5;
+                }
+                // If leave ends in the morning, the afternoon will be worked (deduct 0.5)
+                if ($data['end_half_session'] === 'morning') {
+                    $deduction += 0.5;
+                }
+                $requestedDays = $totalDays - $deduction;
+            }
+        } else {
+            // Full day calculation: Count all days in the range.
+            $requestedDays = $start->diffInDaysFiltered(fn ($date) => ! $date->isWeekend(), $end) + 1;
         }
-
-        $requestedDays = $this->leaveService->calculateLeaveDays($start, $end, $dayType, $data);
-
-        // Debug information
-        \Log::info('Leave calculation debug', [
-            'day_type' => $dayType,
-            'start_date' => $start->toDateString(),
-            'end_date' => $end->toDateString(),
-            'start_half_session' => $data['start_half_session'] ?? null,
-            'end_half_session' => $data['end_half_session'] ?? null,
-            'calculated_days' => $requestedDays
-        ]);
 
         // Ensure the leave period is valid
         if ($requestedDays <= 0) {
-             throw ValidationException::withMessages(['end_half_session' => 'The selected leave period results in zero or fewer leave days. Please check your start and end sessions.']);
+            throw ValidationException::withMessages(['end_half_session' => 'The selected leave period results in zero or fewer leave days. Please check your start and end sessions.']);
         }
-
 
         // --- Leave Balance and Deduction Logic ---
         $leaveType = $data['leave_type'] ?? 'annual';
@@ -140,7 +149,14 @@ class StoreLeave
         }
 
         // --- Overlapping Leave Check ---
-        $overlapping = $this->leaveService->hasOverlappingLeave($user, $start, $end);
+        $overlapping = $user->leaveApplications()
+            ->where('status', '!=', 'rejected')
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('start_date', [$start, $end])
+                    ->orWhereBetween('end_date', [$start, $end])
+                    ->orWhere(fn ($q2) => $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end));
+            })
+            ->exists();
 
         if ($overlapping) {
             throw ValidationException::withMessages([
@@ -172,8 +188,6 @@ class StoreLeave
 
     /**
      * Sends notifications to the designated leave approvers.
-     *
-     * @param LeaveApplication $leaveApplication
      */
     private function sendNotifications(LeaveApplication $leaveApplication): void
     {

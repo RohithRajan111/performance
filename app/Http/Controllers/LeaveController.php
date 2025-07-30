@@ -34,30 +34,21 @@ class LeaveController extends Controller
 
         // 3. Start building the database query for Leave Applications.
         $query = LeaveApplication::query()
-            // Eager-load the 'user' relationship to prevent performance issues (N+1 problem).
-            // We only select the columns needed by the Vue component for efficiency.
+
             ->with('user:id,name,email')
-            // Order the results with the most recent leave dates first.
+
             ->orderBy('start_date', 'desc');
 
-        // 4. Apply the correct data scope based on the user's role.
         if ($canManage) {
-            // A manager can see all leave requests.
-            // No additional filtering is needed on the query.
-            // If you wanted them to only see their team, you would add that logic here.
+
         } else {
-            // A regular employee can only see their own leave requests.
-            // This is a critical security/privacy filter.
+
             $query->where('user_id', $user->id);
         }
 
-        // 5. Execute the query and paginate the results.
-        //    This prevents loading thousands of records at once, ensuring the page is fast.
-        $leaveRequests = $query->paginate(15); // You can adjust the number per page
+        $leaveRequests = $query->paginate(15);
 
-        // 6. Render the Inertia Vue component and pass the data as props.
-        //    The prop names here ('leaveRequests', 'canManage') must match the
-        //    defineProps in your LeaveLogs.vue file.
+
         return Inertia::render('Leave/LeaveLogs', [
             'leaveRequests' => $leaveRequests,
             'canManage' => $canManage,
