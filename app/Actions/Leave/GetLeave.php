@@ -10,7 +10,6 @@ class GetLeave
     /**
      * Determine the color category used for frontend display,
      * based on leave type and remaining leave balance.
-     * Optimized to avoid repeated database queries.
      */
     private function getLeaveColorCategory(LeaveApplication $request): string
     {
@@ -50,27 +49,25 @@ class GetLeave
     /**
      * Fetch leave requests, annotate with color category,
      * and return data for frontend consumption.
-     * Optimized to reduce database queries and improve performance.
      */
     public function handle(): array
     {
         $user = Auth::user();
-        $canManage = $user->can('manage leave applications');
+        $remainingLeaveBalance = $user->getRemainingLeaveBalance();
 
         if ($user->can('manage leave applications')) {
             $requests = LeaveApplication::with(['user:id,name'])
                 ->orderByRaw("CASE status
-                    WHEN 'pending' THEN 1
-                    WHEN 'approved' THEN 2
-                    WHEN 'rejected' THEN 3
-                    ELSE 4
-                    END")
+    WHEN 'pending' THEN 1
+    WHEN 'approved' THEN 2
+    WHEN 'rejected' THEN 3
+    ELSE 4
+END")
+
                 ->latest()
                 ->get();
         } else {
-            // For regular users, only load their own applications
-            $requests = LeaveApplication::forUser($user->id)
-                ->orderByStatusPriority()
+            $requests = LeaveApplication::where('user_id', $user->id)
                 ->latest()
                 ->get();
         }
@@ -87,11 +84,9 @@ class GetLeave
 
         return [
             'leaveRequests' => $requests,
-            'canManage' => $canManage,
+            'canManage' => $user->can('manage leave applications'),
             'highlightedDates' => $highlighted,
-            // 'remainingLeaveBalance' => $leaveStats['remaining_balance'],
-            // 'leaveStatistics' => $leaveStats,
+            'remainingLeaveBalance' => $remainingLeaveBalance,
         ];
     }
 }
-

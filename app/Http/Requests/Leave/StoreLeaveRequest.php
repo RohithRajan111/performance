@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Leave;
 
+use App\Models\LeaveApplication;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -36,8 +37,7 @@ class StoreLeaveRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'reason' => ['required', 'string', 'min:10'],
             'leave_type' => ['required', 'string', 'in:annual,sick,personal,emergency,maternity,paternity'],
-            'day_type' => ['nullable', 'string', 'in:full,half'],
-            // Session fields for half-day leave
+            // New session fields instead of old day_type and half_session
             'start_half_session' => ['nullable', 'in:morning,afternoon'],
             'end_half_session' => ['nullable', 'in:morning,afternoon'],
             'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
@@ -47,31 +47,24 @@ class StoreLeaveRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function ($validator) {
-            // Basic validation - detailed overlap check is handled in StoreLeave action
-            // to avoid duplicate database queries and maintain consistency
+            $userId = $this->user()->id;
+            $start = $this->input('start_date');
+            $end = $this->input('end_date');
 
-            $startDate = Carbon::parse($this->input('start_date'));
-            $endDate = Carbon::parse($this->input('end_date'));
-            $dayType = $this->input('day_type');
+            $hasOverlap = LeaveApplication::where('user_id', $userId)
+                ->where(function ($query) use ($start, $end) {
+                    $query->whereBetween('start_date', [$start, $end])
+                        ->orWhereBetween('end_date', [$start, $end])
+                        ->orWhere(function ($query) use ($start, $end) {
+                            $query->where('start_date', '<=', $start)
+                                ->where('end_date', '>=', $end);
+                        });
+                })
+                ->whereIn('status', ['pending', 'approved'])
+                ->exists();
 
-            // Validate date range makes sense
-            if ($startDate->gt($endDate)) {
-                $validator->errors()->add('end_date', 'End date must be after or equal to start date.');
-            }
-
-            // Validate half-day session requirements
-            $startSession = $this->input('start_half_session');
-            $endSession = $this->input('end_half_session');
-
-            // If day_type is half or if session fields are provided, ensure proper validation
-            if ($dayType === 'half' || $startSession || $endSession) {
-                if (!$startSession) {
-                    $validator->errors()->add('start_half_session', 'Start session is required for half-day leave.');
-                }
-
-                if (!$startDate->isSameDay($endDate) && !$endSession) {
-                    $validator->errors()->add('end_half_session', 'End session is required for multi-day half-day leave.');
-                }
+            if ($hasOverlap) {
+                $validator->errors()->add('start_date', 'These dates overlap with an existing leave request.');
             }
         });
     }
