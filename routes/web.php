@@ -3,6 +3,8 @@
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeaveApplicationController;
+use App\Http\Controllers\LeaveCalendarController;
+use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PerformanceReportController;
 use App\Http\Controllers\ProfileController;
@@ -67,6 +69,7 @@ Route::middleware('auth')->group(function () {
 
     // Leave application routes
     Route::resource('leave', LeaveApplicationController::class)->only(['index', 'store', 'destroy'])->middleware(['can:apply for leave']);
+    Route::get('/leave/logs', [LeaveController::class, 'showLogs'])->name('leave.logs');
     Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])->name('leave.update')->middleware(['can:manage leave applications']);
     Route::post('/leave/{leave_application}/upload-document', [LeaveApplicationController::class, 'uploadDocument'])
         ->name('leave.uploadDocument')
@@ -74,7 +77,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/leave/{leave_application}/cancel', [LeaveApplicationController::class, 'cancel'])->name('leave.cancel')->middleware(['can:apply for leave']);
 
     // Leave calendar route
-    Route::get('/leave-calendar', [LeaveApplicationController::class, 'calendar'])->name('leaves.calendar');
+    Route::get('/leave-calendar', [LeaveCalendarController::class, 'index'])->name('leaves.calendar');
 
     // Time logging routes
     Route::resource('hours', TimeLogController::class)->only(['index', 'store']);

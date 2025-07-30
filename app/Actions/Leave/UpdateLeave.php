@@ -5,11 +5,16 @@ namespace App\Actions\Leave;
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveRequestApproved;
 use App\Notifications\LeaveRequestRejected;
+use App\Services\LeaveService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 
 class UpdateLeave
 {
+    public function __construct(
+        private LeaveService $leaveService
+    ) {}
+
     public function handle(LeaveApplication $leaveApplication, string $status): void
     {
         $leaveApplication->update(['status' => $status]);
@@ -25,6 +30,9 @@ class UpdateLeave
         }
 
         $leaveApplication->update($updateData);
+
+        // Clear user's leave cache since status has changed
+        $this->leaveService->clearUserLeaveCache($leaveApplication->user);
 
         // Send notification based on status
         if ($status === 'approved') {

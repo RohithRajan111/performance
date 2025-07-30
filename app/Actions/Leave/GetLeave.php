@@ -10,6 +10,7 @@ class GetLeave
     /**
      * Determine the color category used for frontend display,
      * based on leave type and remaining leave balance.
+     * Optimized to avoid repeated database queries.
      */
     private function getLeaveColorCategory(LeaveApplication $request): string
     {
@@ -49,11 +50,12 @@ class GetLeave
     /**
      * Fetch leave requests, annotate with color category,
      * and return data for frontend consumption.
+     * Optimized to reduce database queries and improve performance.
      */
     public function handle(): array
     {
         $user = Auth::user();
-        $remainingLeaveBalance = $user->getRemainingLeaveBalance();
+        $canManage = $user->can('manage leave applications');
 
         if ($user->can('manage leave applications')) {
             $requests = LeaveApplication::with(['user:id,name'])
@@ -66,7 +68,9 @@ class GetLeave
                 ->latest()
                 ->get();
         } else {
-            $requests = LeaveApplication::where('user_id', $user->id)
+            // For regular users, only load their own applications
+            $requests = LeaveApplication::forUser($user->id)
+                ->orderByStatusPriority()
                 ->latest()
                 ->get();
         }
@@ -83,9 +87,11 @@ class GetLeave
 
         return [
             'leaveRequests' => $requests,
-            'canManage' => $user->can('manage leave applications'),
+            'canManage' => $canManage,
             'highlightedDates' => $highlighted,
-            'remainingLeaveBalance' => $remainingLeaveBalance,
+            'remainingLeaveBalance' => $leaveStats['remaining_balance'],
+            'leaveStatistics' => $leaveStats,
         ];
     }
 }
+

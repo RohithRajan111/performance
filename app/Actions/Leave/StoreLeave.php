@@ -2,14 +2,21 @@
 
 namespace App\Actions\Leave;
 
+use App\Models\User;
 use App\Models\LeaveApplication;
 use App\Notifications\LeaveRequestSubmitted;
+use App\Services\LeaveService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class StoreLeave
 {
+    public function __construct(
+        private LeaveService $leaveService
+    ) {}
+
     /**
      * Handles the creation of a new leave application.
      *
@@ -23,7 +30,12 @@ class StoreLeave
         info($data);
         $start = Carbon::parse($data['start_date']);
         $end = Carbon::parse($data['end_date']);
+
+        // Determine day type based on session fields if not explicitly provided
         $dayType = $data['day_type'] ?? 'full';
+        if (!isset($data['day_type']) && (isset($data['start_half_session']) || isset($data['end_half_session']))) {
+            $dayType = 'half';
+        }
 
         // --- Basic Date Validations ---
         if ($start->gt($end)) {
@@ -39,7 +51,6 @@ class StoreLeave
         }
 
         // --- Leave Days Calculation ---
-        $requestedDays = 0;
         if ($dayType === 'half') {
             // Validate that the required session fields are present
             if (empty($data['start_half_session'])) {
@@ -79,8 +90,10 @@ class StoreLeave
 
         // --- Leave Balance and Deduction Logic ---
         $leaveType = $data['leave_type'] ?? 'annual';
-        $remainingBalance = $user->getRemainingLeaveBalance();
-        $salaryDeductionDays = 0;
+
+        // Get leave statistics to avoid multiple queries
+        $leaveStats = $user->getLeaveStatistics();
+        $remainingBalance = $leaveStats['remaining_balance'];
         $leaveToDeduct = 0;
 
         switch ($leaveType) {
@@ -103,7 +116,7 @@ class StoreLeave
                     $leaveToDeduct = $requestedDays;
                 } else {
                     $leaveToDeduct = $remainingBalance;
-                    $salaryDeductionDays = $requestedDays - $remainingBalance;
+                    // Note: Remaining days would be unpaid (not tracked in database)
                 }
                 break;
 
@@ -162,14 +175,16 @@ class StoreLeave
             'start_half_session' => $dayType === 'half' ? $data['start_half_session'] : null,
             'end_half_session' => ($dayType === 'half' && $start->ne($end)) ? $data['end_half_session'] : ($dayType === 'half' ? $data['start_half_session'] : null),
             'leave_days' => $requestedDays,
-            'salary_deduction_days' => $salaryDeductionDays,
             'status' => 'pending',
         ]);
 
+        // Clear user's leave cache since data has changed
+        $this->leaveService->clearUserLeaveCache($user);
+
         $this->sendNotifications($leaveApplication);
 
-        return $leaveApplication;
-    }
+    return $leaveApplication;
+}
 
     /**
      * Sends notifications to the designated leave approvers.
@@ -184,20 +199,21 @@ class StoreLeave
                     $approver->notify(new LeaveRequestSubmitted($leaveApplication));
                 }
 
-                \Log::info('Leave request notifications sent', [
+                Log::info('Leave request notifications sent', [
                     'leave_id' => $leaveApplication->id,
                     'approvers_count' => $approvers->count(),
                 ]);
             } else {
-                \Log::warning('No approvers found for leave request', [
+                Log::warning('No approvers found for leave request', [
                     'leave_id' => $leaveApplication->id,
                 ]);
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to send leave request notifications', [
+            Log::error('Failed to send leave request notifications', [
                 'error' => $e->getMessage(),
                 'leave_id' => $leaveApplication->id,
             ]);
         }
     }
 }
+
