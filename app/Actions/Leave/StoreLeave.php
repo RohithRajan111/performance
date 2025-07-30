@@ -8,6 +8,7 @@ use App\Notifications\LeaveRequestSubmitted;
 use App\Services\LeaveService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class StoreLeave
@@ -184,17 +185,17 @@ class StoreLeave
                     $approver->notify(new LeaveRequestSubmitted($leaveApplication));
                 }
 
-                \Log::info('Leave request notifications sent', [
+                Log::info('Leave request notifications sent', [
                     'leave_id' => $leaveApplication->id,
                     'approvers_count' => $approvers->count(),
                 ]);
             } else {
-                \Log::warning('No approvers found for leave request', [
+                Log::warning('No approvers found for leave request', [
                     'leave_id' => $leaveApplication->id,
                 ]);
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to send leave request notifications', [
+            Log::error('Failed to send leave request notifications', [
                 'error' => $e->getMessage(),
                 'leave_id' => $leaveApplication->id,
             ]);

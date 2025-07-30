@@ -2,7 +2,11 @@
 
 use App\Http\Controllers\CalendarNoteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeaveApplicationController;
 use App\Http\Controllers\LeaveCalendarController;
+use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PerformanceReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\RoleController;
@@ -65,6 +69,7 @@ Route::middleware('auth')->group(function () {
 
     // Leave application routes
     Route::resource('leave', LeaveApplicationController::class)->only(['index', 'store', 'destroy'])->middleware(['can:apply for leave']);
+    Route::get('/leave/logs', [LeaveController::class, 'showLogs'])->name('leave.logs');
     Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])->name('leave.update')->middleware(['can:manage leave applications']);
     Route::post('/leave/{leave_application}/upload-document', [LeaveApplicationController::class, 'uploadDocument'])
         ->name('leave.uploadDocument')

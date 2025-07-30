@@ -17,7 +17,7 @@ onMounted(async () => {
         import('@/Components/DropdownLink.vue'),
         import('@/Components/NavLink.vue')
     ]);
-    
+
     ApplicationLogo.value = logoModule.default;
     Dropdown.value = dropdownModule.default;
     DropdownLink.value = dropdownLinkModule.default;
@@ -33,7 +33,7 @@ let notificationInterval = null;
 
 const fetchNotifications = async () => {
     if (!usePage().props.auth.user || loading.value) return;
-    
+
     try {
         const [countResponse, notificationsResponse] = await Promise.all([
             axios.get(route('notifications.unread-count')),
@@ -41,16 +41,16 @@ const fetchNotifications = async () => {
         ]);
         unreadNotificationCount.value = countResponse.data.count;
         notifications.value = notificationsResponse.data.data;
-    } catch (error) { 
-        console.error('Error fetching notifications:', error); 
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
     }
 };
 
 const handleNotificationClick = async (notification) => {
     try {
         await axios.post(route('notifications.read', notification.id));
-        if (notification.data.url) { 
-            router.visit(notification.data.url); 
+        if (notification.data.url) {
+            router.visit(notification.data.url);
         }
         closeNotificationDropdown();
     } catch (error) {
@@ -65,30 +65,30 @@ const markAllAsRead = async () => {
         await axios.post(route('notifications.mark-all-read'));
         await fetchNotifications();
         showingNotificationDropdown.value = false;
-    } catch (error) { 
-        console.error('Error marking all as read:', error); 
-    } finally { 
-        loading.value = false; 
+    } catch (error) {
+        console.error('Error marking all as read:', error);
+    } finally {
+        loading.value = false;
     }
 };
 
 const toggleNotificationDropdown = () => {
     showingNotificationDropdown.value = !showingNotificationDropdown.value;
-    if (showingNotificationDropdown.value) { 
-        fetchNotifications(); 
+    if (showingNotificationDropdown.value) {
+        fetchNotifications();
     }
 };
 
-const closeNotificationDropdown = () => { 
-    showingNotificationDropdown.value = false; 
+const closeNotificationDropdown = () => {
+    showingNotificationDropdown.value = false;
 };
 
 const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
+    return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     });
 };
 
@@ -110,7 +110,7 @@ const showingSidebar = ref(false);
 // Memoized navigation items for better performance
 const navigationItems = computed(() => {
     if (!user.value?.permissions) return [];
-    
+
     const items = [
         {
             name: 'Dashboard',
@@ -133,6 +133,17 @@ const navigationItems = computed(() => {
             show: user.value.permissions.includes('manage roles'),
             icon: 'Manage Roles'
         },
+
+          {
+        // ✅ NEW: Added the Leave Logs item
+        name: 'Leave Logs',
+        route: 'leave.logs',
+        active: route().current('leave.logs'),
+        // Show this to anyone who can apply for leave or manage leaves
+        show: user.value.permissions.includes('apply for leave') || user.value.permissions.includes('manage leave applications'),
+        icon: 'Leave Logs' // You might need a corresponding icon component
+    },
+
         {
             name: 'Projects',
             route: 'projects.index',
@@ -147,6 +158,7 @@ const navigationItems = computed(() => {
             show: user.value.permissions.includes('apply for leave'),
             icon: 'Apply for Leave'
         },
+
         {
             name: 'Working Hours',
             route: 'hours.index',
@@ -176,7 +188,7 @@ const navigationItems = computed(() => {
             icon: 'Company Hierarchy'
         }
     ];
-    
+
     return items.filter(item => item.show);
 });
 
@@ -185,6 +197,7 @@ const icons = {
     Dashboard: `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>`,
     'Leave Calendar': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
     'Manage Roles': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944A12.02 12.02 0 0012 22a12.02 12.02 0 009-1.056c.343-.344.664-.714.944-1.123l-2.432-2.432z" /></svg>`,
+    'Leave Logs': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
     Projects: `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>`,
     'Apply for Leave': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
     'Working Hours': `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
@@ -221,16 +234,16 @@ onUnmounted(() => {
                     <span class="text-xl font-bold text-slate-800">WorkSphere</span>
                 </div>
                 <nav v-if="user && user.permissions && NavLink" class="mt-8 flex-1 space-y-1 px-3 pb-4">
-                    <component 
-                        :is="NavLink" 
-                        v-for="item in navigationItems" 
+                    <component
+                        :is="NavLink"
+                        v-for="item in navigationItems"
                         :key="item.name"
-                        :href="route(item.route)" 
+                        :href="route(item.route)"
                         :active="item.active"
                     >
-                        <span 
-                            v-html="icons[item.icon]" 
-                            class="mr-3 flex-shrink-0 h-6 w-6" 
+                        <span
+                            v-html="icons[item.icon]"
+                            class="mr-3 flex-shrink-0 h-6 w-6"
                             :class="[item.active ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"
                         ></span>
                         {{ item.name }}
@@ -266,21 +279,21 @@ onUnmounted(() => {
                                         {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
                                     </span>
                                 </button>
-                                
+
                                 <!-- Notification dropdown content -->
-                                <div 
-                                    v-if="showingNotificationDropdown" 
+                                <div
+                                    v-if="showingNotificationDropdown"
                                     @click="closeNotificationDropdown"
                                     class="fixed inset-0 z-40"
                                 ></div>
-                                <div 
+                                <div
                                     v-if="showingNotificationDropdown"
                                     class="absolute right-0 z-50 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg"
                                 >
                                     <div class="p-4 border-b border-slate-200">
                                         <div class="flex items-center justify-between">
                                             <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
-                                            <button 
+                                            <button
                                                 v-if="notifications.length > 0"
                                                 @click="markAllAsRead"
                                                 :disabled="loading"
@@ -294,8 +307,8 @@ onUnmounted(() => {
                                         <div v-if="notifications.length === 0" class="p-4 text-center text-slate-500 text-sm">
                                             No notifications
                                         </div>
-                                        <div 
-                                            v-for="notification in notifications" 
+                                        <div
+                                            v-for="notification in notifications"
                                             :key="notification.id"
                                             @click="handleNotificationClick(notification)"
                                             class="p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
@@ -312,7 +325,7 @@ onUnmounted(() => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- User Profile Dropdown -->
                             <component :is="Dropdown" align="right" width="48">
                                 <template #trigger>
@@ -356,7 +369,7 @@ onUnmounted(() => {
                 </main>
             </div>
         </div>
-        
+
         <!-- Mobile Sidebar (Overlay) -->
         <div v-if="showingSidebar" class="relative z-40 md:hidden" role="dialog" aria-modal="true">
             <div @click="showingSidebar = false" class="fixed inset-0 bg-slate-600 bg-opacity-75"></div>
@@ -369,17 +382,17 @@ onUnmounted(() => {
                         <span class="text-xl font-bold text-slate-800">WorkSphere</span>
                     </div>
                     <nav v-if="user && user.permissions && NavLink" class="mt-8 flex-1 space-y-1 px-3 pb-4">
-                        <component 
-                            :is="NavLink" 
-                            v-for="item in navigationItems" 
+                        <component
+                            :is="NavLink"
+                            v-for="item in navigationItems"
                             :key="item.name"
-                            :href="route(item.route)" 
+                            :href="route(item.route)"
                             :active="item.active"
                             @click="showingSidebar = false"
                         >
-                            <span 
-                                v-html="icons[item.icon]" 
-                                class="mr-3 flex-shrink-0 h-6 w-6" 
+                            <span
+                                v-html="icons[item.icon]"
+                                class="mr-3 flex-shrink-0 h-6 w-6"
                                 :class="[item.active ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500']"
                             ></span>
                             {{ item.name }}

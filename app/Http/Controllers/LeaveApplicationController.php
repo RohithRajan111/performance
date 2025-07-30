@@ -51,4 +51,26 @@ class LeaveApplicationController extends Controller
 
         return Redirect::route('leave.index')->with('success', 'Leave request canceled.');
     }
+
+     public function showLogs(Request $request)
+    {
+        $user = Auth::user();
+        $canManage = $user->hasRole('manager'); // Or however you check for manager permissions
+
+        $query = LeaveApplication::with('user:id,name,email')->orderBy('start_date', 'desc');
+
+        if ($canManage) {
+            // A manager can see all requests
+            $leaveRequests = $query->get();
+        } else {
+            // A regular user can only see their own requests
+            $leaveRequests = $query->where('user_id', $user->id)->get();
+        }
+
+        // Render the new Leave/LeaveLogs view with the necessary data
+        return Inertia::render('Leave/LeaveLogs', [
+            'leaveRequests' => $leaveRequests,
+            'canManage' => $canManage,
+        ]);
+    }
 }

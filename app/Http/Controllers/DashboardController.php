@@ -8,9 +8,10 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
@@ -129,8 +130,6 @@ class DashboardController extends Controller
             'myTasks' => $myTasks,
         ]);
     }
-}
-
 
     /**
      * Get color for different leave types

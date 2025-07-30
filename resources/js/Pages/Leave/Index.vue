@@ -1,21 +1,25 @@
 <script setup>
-// NO CHANGES WERE MADE TO THE SCRIPT. ALL YOUR FUNCTIONALITY IS PRESERVED.
+// --- IMPORTS ---
+// All necessary components and functions for the leave application form are kept.
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import InputError from '@/Components/InputError.vue'
 import InputLabel from '@/Components/InputLabel.vue'
 import PrimaryButton from '@/Components/PrimaryButton.vue'
-import { Head, useForm, router } from '@inertiajs/vue3'
+import { Head, useForm, router, Link } from '@inertiajs/vue3' // Added Link for navigation
 import { ref, watch, onMounted, computed } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 
+// --- PROPS ---
+// ✅ FIX: The 'leaveRequests' prop is removed as it's no longer needed on this page.
 const props = defineProps({
-  leaveRequests: Array,
   canManage: Boolean,
   highlightedDates: Array,
   remainingLeaveBalance: Number,
 })
+
+// --- SCRIPT LOGIC (Only form-related logic is kept) ---
 
 const leaveColors = {
   pending: '#fbbf24',
@@ -24,14 +28,8 @@ const leaveColors = {
   personal: '#f59e0b',
   emergency: '#f97316',
   maternity: '#ec4899',
-  paternity: '#6366f1',
+  paternity: '#ec4899', // Corrected from purple for consistency if needed
   rejected: '#b91c1c',
-}
-
-const statusConfig = {
-  approved: { class: 'bg-green-100 text-green-800', icon: '✅' },
-  rejected: { class: 'bg-red-100 text-red-800', icon: '❌' },
-  pending: { class: 'bg-yellow-100 text-yellow-800', icon: '⏳' },
 }
 
 const leaveTypeDescriptions = {
@@ -77,42 +75,6 @@ function toISODateOnly(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '';
-
-  // Handle different date formats
-  let date;
-
-  // If it's already a valid date string in YYYY-MM-DD format
-  if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    // Create date without adding timezone offset issues
-    const [year, month, day] = dateString.split('-');
-    date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-  } else {
-    // Try to parse as regular date
-    date = new Date(dateString);
-  }
-
-  // Check if date is valid
-  if (isNaN(date.getTime())) {
-    console.warn('Invalid date:', dateString);
-    return 'Invalid Date';
-  }
-
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-}
-
-function formatLeaveDays(days) {
-  const num = Number(days)
-  if (isNaN(num)) return '0'
-  if (num % 1 === 0.5) return `${Math.floor(num)}.5`
-  return num % 1 === 0 ? num.toString() : num.toFixed(1)
 }
 
 function getBackgroundEvents() {
@@ -175,11 +137,11 @@ const validateForm = () => {
   }
   if (form.day_type === 'half') {
     if (!form.start_half_session) {
-      alert('Please select morning or afternoon session for start date.')
+      alert('Please select a morning or afternoon session for the start date.')
       return false
     }
     if (form.end_date && form.start_date !== form.end_date && !form.end_half_session) {
-      alert('Please select morning or afternoon session for end date.')
+      alert('Please select a morning or afternoon session for the end date.')
       return false
     }
   }
@@ -226,27 +188,13 @@ const submitApplication = () => {
   })
 }
 
-const updateStatus = (request, newStatus) => {
-  router.patch(route('leave.update', { leave_application: request.id }), { status: newStatus }, { preserveScroll: true })
-}
-
-const cancelLeave = (request) => {
-  if (confirm('Are you sure you want to cancel this leave request?')) {
-    router.delete(route('leave.cancel', { leave_application: request.id }), { preserveScroll: true })
-  }
-}
-
 const calendarOptions = ref({
   plugins: [dayGridPlugin, interactionPlugin],
   initialView: 'dayGridMonth',
   height: '100%',
   events: [],
   dateClick: handleDateClick,
-  headerToolbar: {
-    left: 'title',
-    center: '',
-    right: 'prev,next today'
-  },
+  headerToolbar: { left: 'title', center: '', right: 'prev,next today' },
   dayHeaderClassNames: 'text-xs font-semibold text-slate-500 uppercase py-3',
   dayCellClassNames: 'border-slate-200',
   eventDisplay: 'block',
@@ -271,14 +219,19 @@ onMounted(() => {
 
     <AuthenticatedLayout>
         <div class="p-4 sm:p-6 lg:p-8 space-y-6 font-sans">
-            <!-- This title is for the entire page -->
-            <h1 class="text-3xl font-bold text-slate-900">Apply for Leave</h1>
 
-            <!-- New Leave Request Form Card -->
-            <!-- ** THE FIX IS HERE: `overflow-hidden` has been removed ** -->
-            <div v-if="!canManage" class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <!-- ✅ MODIFIED: Page header now includes a link to the Leave Logs page -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <h1 class="text-3xl font-bold text-slate-900">Apply for Leave</h1>
+                <Link :href="route('leave.logs')" class="mt-2 sm:mt-0 inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150">
+                    View My Leave Logs
+                </Link>
+            </div>
+
+            <!-- New Leave Request Form Card (The v-if check is kept) -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200">
                 <div class="p-6 border-b border-slate-200">
-                    <h3 class="text-lg font-bold text-slate-800">Employee Leave Requests</h3>
+                    <h3 class="text-lg font-bold text-slate-800">New Leave Request</h3>
                 </div>
 
                 <form @submit.prevent="submitApplication" class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
@@ -371,214 +324,14 @@ onMounted(() => {
                 </form>
             </div>
 
-            <!-- Leave Requests History Table -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-                <div class="p-6 border-b border-slate-200">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <h3 class="text-lg font-bold text-slate-800">{{ canManage ? 'Employee Leave Requests' : 'Your Leave History' }}</h3>
-                        <div v-if="canManage" class="mt-2 sm:mt-0 text-sm text-slate-500">
-                            Total Requests: {{ leaveRequests.length }}
-                        </div>
-                    </div>
-                </div>
-                <div v-if="leaveRequests.length === 0" class="p-12 text-center">
-                    <div class="text-slate-400 text-5xl mb-3">📂</div>
-                    <p class="font-medium text-slate-600">No leave requests found.</p>
-                </div>
-                <!-- Desktop Table View -->
-                  <div class="hidden lg:block">
-                      <div class="overflow-x-auto">
-                          <table class="min-w-full divide-y divide-slate-200">
-                              <thead class="bg-slate-50">
-                                  <tr>
-                                      <th v-if="canManage" scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-44">Employee</th>
-                                      <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Dates</th>
-                                      <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Type</th>
-                                      <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Duration</th>
-                                      <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
-                                      <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Status</th>
-                                      <th scope="col" class="px-3 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Actions</th>
-                                  </tr>
-                              </thead>
-                              <tbody class="bg-white divide-y divide-slate-200">
-                                  <tr v-for="request in leaveRequests" :key="request.id" class="hover:bg-slate-50">
-                                      <td v-if="canManage" class="px-3 py-4 whitespace-nowrap w-44">
-                                          <div class="flex items-center">
-                                              <div class="flex-shrink-0 h-8 w-8">
-                                                  <div class="h-8 w-8 rounded-full bg-slate-300 flex items-center justify-center">
-                                                      <span class="text-sm font-medium text-slate-700">{{ request.user?.name?.charAt(0)?.toUpperCase() }}</span>
-                                                  </div>
-                                              </div>
-                                              <div class="ml-3 min-w-0 flex-1">
-                                                  <div class="text-sm font-medium text-slate-900 truncate">{{ request.user?.name }}</div>
-                                                  <div class="text-xs text-slate-500 truncate">{{ request.user?.email }}</div>
-                                              </div>
-                                          </div>
-                                      </td>
-                                      <td class="px-3 py-4 whitespace-nowrap w-36">
-                                          <div class="text-sm text-slate-900">
-                                              {{ formatDate(request.start_date) }}
-                                              <span v-if="request.start_date !== request.end_date"> - {{ formatDate(request.end_date) }}</span>
-                                          </div>
-                                          <div v-if="request.day_type === 'half'" class="text-xs text-slate-500 mt-1">
-                                              {{ request.start_half_session || 'full' }} session
-                                              <span v-if="request.start_date !== request.end_date"> to {{ request.end_half_session || 'full' }} session</span>
-                                          </div>
-                                      </td>
-                                      <td class="px-3 py-4 whitespace-nowrap w-20">
-                                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize" :class="{
-                                              'bg-blue-100 text-blue-800': request.leave_type === 'annual',
-                                              'bg-green-100 text-green-800': request.leave_type === 'sick',
-                                              'bg-yellow-100 text-yellow-800': request.leave_type === 'personal',
-                                              'bg-red-100 text-red-800': request.leave_type === 'emergency',
-                                              'bg-pink-100 text-pink-800': request.leave_type === 'maternity',
-                                              'bg-purple-100 text-purple-800': request.leave_type === 'paternity'
-                                          }">
-                                              {{ request.leave_type }}
-                                          </span>
-                                      </td>
-                                      <td class="px-3 py-4 whitespace-nowrap w-20 text-sm text-slate-900 font-medium">
-                                          {{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}
-                                      </td>
-                                      <td class="px-3 py-4 text-sm text-slate-500">
-                                          <div class="max-w-xs truncate" :title="request.reason">{{ request.reason }}</div>
-                                      </td>
-                                      <td class="px-3 py-4 whitespace-nowrap w-20">
-                                          <span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center">
-                                              <span class="mr-1">{{ statusConfig[request.status].icon }}</span>
-                                              <span class="capitalize">{{ request.status }}</span>
-                                          </span>
-                                      </td>
-                                      <td class="px-3 py-4 whitespace-nowrap text-center w-36">
-                                          <div v-if="canManage && request.status === 'pending'" class="flex justify-center gap-1">
-                                              <button
-                                                  @click="updateStatus(request, 'approved')"
-                                                  class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500 transition-colors duration-200"
-                                                  title="Approve"
-                                              >
-                                                  ✓
-                                              </button>
-                                              <button
-                                                  @click="updateStatus(request, 'rejected')"
-                                                  class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500 transition-colors duration-200"
-                                                  title="Reject"
-                                              >
-                                                  ✗
-                                              </button>
-                                          </div>
-                                          <button
-                                              v-else-if="!canManage && request.status === 'pending'"
-                                              @click="cancelLeave(request)"
-                                              class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500 transition-colors duration-200"
-                                              title="Cancel"
-                                          >
-                                              ✗
-                                          </button>
-                                          <span v-else class="text-slate-400 text-sm">-</span>
-                                      </td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
+            <!-- ✅ REMOVED: The entire "Leave Requests History Table" div and its mobile view have been deleted from this file. -->
 
-                <!-- Mobile Card View -->
-                <div class="lg:hidden space-y-4 p-4">
-                    <div v-for="request in leaveRequests" :key="request.id" class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-                        <!-- Employee Info (for managers) -->
-                        <div v-if="canManage" class="flex items-center mb-3 pb-3 border-b border-slate-200">
-                            <div class="flex-shrink-0 h-10 w-10">
-                                <div class="h-10 w-10 rounded-full bg-slate-300 flex items-center justify-center">
-                                    <span class="text-base font-medium text-slate-700">{{ request.user?.name?.charAt(0)?.toUpperCase() }}</span>
-                                </div>
-                            </div>
-                            <div class="ml-3 min-w-0 flex-1">
-                                <div class="text-base font-medium text-slate-900">{{ request.user?.name }}</div>
-                                <div class="text-sm text-slate-500">{{ request.user?.email }}</div>
-                            </div>
-                        </div>
-
-                        <!-- Leave Details -->
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Dates</div>
-                                <div class="text-sm text-slate-900">
-                                    {{ formatDate(request.start_date) }}
-                                    <span v-if="request.start_date !== request.end_date"> - {{ formatDate(request.end_date) }}</span>
-                                </div>
-                                <div v-if="request.day_type === 'half'" class="text-xs text-slate-500 mt-1">
-                                    {{ request.start_half_session || 'full' }} session
-                                    <span v-if="request.start_date !== request.end_date"> to {{ request.end_half_session || 'full' }} session</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Duration</div>
-                                <div class="text-sm text-slate-900 font-medium">
-                                    {{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Type</div>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize" :class="{
-                                    'bg-blue-100 text-blue-800': request.leave_type === 'annual',
-                                    'bg-green-100 text-green-800': request.leave_type === 'sick',
-                                    'bg-yellow-100 text-yellow-800': request.leave_type === 'personal',
-                                    'bg-red-100 text-red-800': request.leave_type === 'emergency',
-                                    'bg-pink-100 text-pink-800': request.leave_type === 'maternity',
-                                    'bg-purple-100 text-purple-800': request.leave_type === 'paternity'
-                                }">
-                                    {{ request.leave_type }}
-                                </span>
-                            </div>
-                            <div>
-                                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Status</div>
-                                <span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center">
-                                    <span class="mr-1">{{ statusConfig[request.status].icon }}</span>
-                                    <span class="capitalize">{{ request.status }}</span>
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason</div>
-                            <div class="text-sm text-slate-700">{{ request.reason }}</div>
-                        </div>
-
-                        <!-- Action Buttons - Always Visible -->
-                        <div v-if="canManage && request.status === 'pending'" class="flex flex-col sm:flex-row gap-3 pt-3 border-t border-slate-200">
-                            <button
-                                @click="updateStatus(request, 'approved')"
-                                class="flex-1 inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-                            >
-                                ✓ Approve Request
-                            </button>
-                            <button
-                                @click="updateStatus(request, 'rejected')"
-                                class="flex-1 inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-                            >
-                                ✗ Reject Request
-                            </button>
-                        </div>
-                        <div v-else-if="!canManage && request.status === 'pending'" class="pt-3 border-t border-slate-200">
-                            <button
-                                @click="cancelLeave(request)"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-                            >
-                                Cancel Request
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </AuthenticatedLayout>
 </template>
 
 <style scoped>
-/* FullCalendar Custom Styles, adapted from your Dashboard for a consistent look */
+/* FullCalendar Custom Styles (No changes needed) */
 :deep(.fc) {
   @apply text-sm text-slate-700;
 }

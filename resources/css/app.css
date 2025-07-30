@@ -103,3 +103,13 @@
     stroke: #4f46e5;
     transform: scale(1.1);
 }
+
+/* app.css */
+
+input,
+textarea,
+select {
+  @apply bg-white text-black placeholder-gray-400 border border-gray-300 rounded;
+}
+/* app.css */
+

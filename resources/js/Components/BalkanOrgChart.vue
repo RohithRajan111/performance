@@ -1,48 +1,61 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import OrgChart from '@balkangraph/orgchart.js';
 
+// ✅ 1. ADD A NEW 'layout' PROP
+// This allows the parent component to choose the layout.
+// We'll default to 'vertical' to solve your immediate problem.
 const props = defineProps({
   nodes: {
     type: Array,
     required: true,
+  },
+  layout: {
+    type: String,
+    default: 'vertical', // 'vertical' or 'horizontal'
   }
 });
 
 const chartContainer = ref(null);
+// We need a ref to hold the chart instance so we can update it later.
+const chartInstance = ref(null);
+
+// ✅ 2. CREATE A HELPER FUNCTION
+// This function translates our simple prop ('vertical') into the library's specific constant.
+const getLayoutConstant = (layoutName) => {
+  if (layoutName === 'vertical') {
+    // This layout arranges nodes top-to-bottom.
+    return OrgChart.layout.tree;
+  }
+  // This is the default horizontal layout.
+  return OrgChart.layout.normal;
+};
+
 
 onMounted(() => {
   if (chartContainer.value && props.nodes.length) {
 
-    const chart = new OrgChart(chartContainer.value, {
+    // Initialize the chart with the correct layout from the start.
+    chartInstance.value = new OrgChart(chartContainer.value, {
       nodes: props.nodes,
-      
-      // --- THIS IS THE FIX ---
-      // Disable the remote service to prevent the network error.
-      // All calculations will now happen locally in the browser.
-      enableSearch: false, // Disabling search also removes a remote call if not configured
+
+      // ✅ 3. USE THE NEW LAYOUT OPTION
+      // Set the initial layout based on the prop.
+      layout: getLayoutConstant(props.layout),
+
+      // --- Other options (unchanged) ---
+      enableSearch: false,
       remote: {
             url: null
       },
-      // --- END OF FIX ---
-
-      // We will use a simple template as our base for CSS styling.
       template: "isla",
-
-      // Enable interactive features.
       mouseScrool: OrgChart.action.zoom,
-      
-      // Map data fields to the node elements.
       nodeBinding: {
         field_0: "name",
         field_1: "title",
         img_0: "image"
       },
-
-      // Add a CSS class for each node's level.
       levelSeparation: 70,
-
-      // Apply a custom CSS class to the logged-in user's node for styling.
       tags: {
         "is-logged-in-user": {
           "node-class": "highlighted-user"
@@ -51,6 +64,19 @@ onMounted(() => {
     });
   }
 });
+
+// ✅ 4. WATCH FOR CHANGES TO THE LAYOUT PROP
+// If the parent component changes the layout (e.g., via a toggle),
+// this will update the chart without needing to remount everything.
+watch(() => props.layout, (newLayout) => {
+  if (chartInstance.value) {
+    // Use the library's API to update the layout configuration
+    chartInstance.value.config.set('layout', getLayoutConstant(newLayout));
+    // Redraw the chart to apply the new layout
+    chartInstance.value.draw();
+  }
+});
+
 </script>
 
 <template>
@@ -58,19 +84,15 @@ onMounted(() => {
 </template>
 
 <style>
-/* 
-  All detailed styling is handled in the global app.css file.
-  This block just contains minor overrides for the library's built-in templates.
-*/
+/* --- Styles (unchanged) --- */
 
-/* Customizing the 'isla' template text alignment and color */
 .boc-isla .boc-field-0 {
     font-size: 16px;
     font-weight: 600;
-    fill: #1f2937; /* Dark Gray */
+    fill: #1f2937;
 }
 .boc-isla .boc-field-1 {
     font-size: 14px;
-    fill: #6b7280; /* Medium Gray */
+    fill: #6b7280;
 }
 </style>
