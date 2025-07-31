@@ -1,146 +1,311 @@
 <script setup>
-// --- IMPORTS ---
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { Head, router, Link } from '@inertiajs/vue3' // Import the Link component for pagination
+import { Head, router } from '@inertiajs/vue3'
+import PrimaryButton from '@/Components/PrimaryButton.vue'
+import { ref } from 'vue'
 
-// --- PROPS ---
-// ✅ FIX: The prop now correctly expects a paginator Object from Laravel.
+// Props: Paginator object of leaveRequests, no canManage as always admin/HR view
 const props = defineProps({
   leaveRequests: Object,
-  canManage: Boolean,
-});
+})
 
-// --- CONFIGURATION & HELPERS (No changes needed here) ---
+// Status display config
 const statusConfig = {
   approved: { class: 'bg-green-100 text-green-800', icon: '✅' },
   rejected: { class: 'bg-red-100 text-red-800', icon: '❌' },
   pending: { class: 'bg-yellow-100 text-yellow-800', icon: '⏳' },
-};
+}
+
+// Format date string nicely
 function formatDate(dateString) {
   if (!dateString) return '';
-  const [year, month, day] = dateString.split('-');
-  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  const date = new Date(dateString);
   if (isNaN(date.getTime())) return 'Invalid Date';
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+
+// Format leave days with halves (e.g., 1.5)
 function formatLeaveDays(days) {
-  const num = Number(days);
-  if (isNaN(num)) return '0';
-  if (num % 1 === 0.5) return `${Math.floor(num)}.5`;
-  return num % 1 === 0 ? num.toString() : num.toFixed(1);
+  const num = Number(days)
+  if (isNaN(num)) return '0'
+  if (num % 1 === 0.5) return `${Math.floor(num)}.5`
+  return (num % 1 === 0) ? num.toString() : num.toFixed(1)
 }
 
-// --- ACTION HANDLERS (No changes needed here) ---
-const updateStatus = (request, newStatus) => {
-  router.patch(route('leave.update', { leave_application: request.id }), { status: newStatus }, { preserveScroll: true });
+// Upload Document modal state
+const isUploadModalVisible = ref(false)
+const uploadFile = ref(null)
+const uploadErrors = ref({})
+const uploadProcessing = ref(false)
+const currentUploadLeaveId = ref(null)
+
+function openUploadModal(leaveId) {
+  currentUploadLeaveId.value = leaveId
+  uploadFile.value = null
+  uploadErrors.value = {}
+  uploadProcessing.value = false
+  isUploadModalVisible.value = true
 }
-const cancelLeave = (request) => {
-  if (confirm('Are you sure you want to cancel this leave request?')) {
-    router.delete(route('leave.cancel', { leave_application: request.id }), { preserveScroll: true });
+
+function closeUploadModal() {
+  isUploadModalVisible.value = false
+  currentUploadLeaveId.value = null
+  uploadFile.value = null
+  uploadErrors.value = {}
+  uploadProcessing.value = false
+}
+
+function onUploadFileChange(event) {
+  uploadFile.value = event.target.files[0]
+}
+
+function submitUpload() {
+  if (!uploadFile.value) {
+    uploadErrors.value.supporting_document = 'Please select a file.'
+    return
   }
+  uploadProcessing.value = true
+  const formData = new FormData()
+  formData.append('supporting_document', uploadFile.value)
+
+  router.post(route('leave.uploadDocument', { leave_application: currentUploadLeaveId.value }), formData, {
+    preserveScroll: true,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onSuccess: () => {
+      uploadProcessing.value = false
+      closeUploadModal()
+      router.reload()
+    },
+    onError: (errors) => {
+      uploadProcessing.value = false
+      uploadErrors.value = errors
+    },
+  })
+}
+
+// Leave Details modal state
+const isDetailsModalOpen = ref(false)
+const selectedLeave = ref(null)
+
+function openDetailsModal(request) {
+  selectedLeave.value = request
+  isDetailsModalOpen.value = true
+}
+
+function closeDetailsModal() {
+  selectedLeave.value = null
+  isDetailsModalOpen.value = false
+}
+
+// Approve/Reject leave actions
+const updateStatus = (request, newStatus) => {
+  router.patch(route('leave.update', { leave_application: request.id }), { status: newStatus }, { preserveScroll: true })
 }
 </script>
 
 <template>
-    <Head title="Leave Logs" />
+  <Head title="Leave Logs" />
+  <AuthenticatedLayout>
+    <div class="p-6 max-w-5xl mx-auto space-y-6 font-sans">
 
-    <AuthenticatedLayout>
-        <div class="p-4 sm:p-6 lg:p-8 space-y-6 font-sans">
-            <!-- Page Header -->
-            <h1 class="text-3xl font-bold text-slate-900">Leave Application Logs</h1>
+      <h1 class="text-3xl font-bold text-gray-900 mb-4">Leave Application Logs</h1>
 
-            <!-- Leave Requests History Table Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-                <div class="p-6 border-b border-slate-200">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <h3 class="text-lg font-bold text-slate-800">{{ canManage ? 'All Employee Leave Requests' : 'Your Leave History' }}</h3>
-                        <!-- ✅ FIX: Access the 'total' count from the paginator object -->
-                        <div v-if="canManage" class="mt-2 sm:mt-0 text-sm text-slate-500">
-                            Total Requests: {{ leaveRequests.total }}
-                        </div>
-                    </div>
+      <div v-if="leaveRequests.data.length === 0" class="p-12 text-center text-gray-600 text-lg">
+        No leave requests found.
+      </div>
+
+      <div v-else class="bg-white rounded-lg shadow border border-gray-200 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-2/3">
+                Employee
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/6">
+                Status
+              </th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/6">
+                Details
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="request in leaveRequests.data" :key="request.id" class="hover:bg-gray-50">
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center space-x-3">
+                  <div class="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-semibold">
+                    {{ request.user?.name?.charAt(0)?.toUpperCase() || '?' }}
+                  </div>
+                  <div class="text-gray-900 font-medium truncate">
+                    {{ request.user?.name || 'Unknown' }}
+                  </div>
                 </div>
+              </td>
 
-                <!-- Empty State -->
-                <!-- ✅ FIX: Check the length of the 'data' array inside the object -->
-                <div v-if="leaveRequests.data.length === 0" class="p-12 text-center">
-                    <div class="text-slate-400 text-5xl mb-3">📂</div>
-                    <p class="font-medium text-slate-600">No leave requests found.</p>
-                </div>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span
+                  :class="statusConfig[request.status].class"
+                  class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold"
+                >
+                  <span class="mr-1">{{ statusConfig[request.status].icon }}</span>
+                  {{ request.status.charAt(0).toUpperCase() + request.status.slice(1) }}
+                </span>
+              </td>
 
-                <div v-else>
-                    <!-- Desktop Table View -->
-                    <div class="hidden lg:block">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-slate-200">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th v-if="canManage" scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-44">Employee</th>
-                                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Dates</th>
-                                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Type</th>
-                                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Duration</th>
-                                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
-                                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Status</th>
-                                        <th scope="col" class="px-3 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-slate-200">
-                                    <!-- ✅ FIX: Loop over `leaveRequests.data` to get the array of items -->
-                                    <tr v-for="request in leaveRequests.data" :key="request.id" class="hover:bg-slate-50">
-                                        <td v-if="canManage" class="px-3 py-4 whitespace-nowrap w-44">
-                                            <div class="flex items-center">
-                                                <div class="flex-shrink-0 h-8 w-8"><div class="h-8 w-8 rounded-full bg-slate-300 flex items-center justify-center"><span class="text-sm font-medium text-slate-700">{{ request.user?.name?.charAt(0)?.toUpperCase() }}</span></div></div>
-                                                <div class="ml-3 min-w-0 flex-1"><div class="text-sm font-medium text-slate-900 truncate">{{ request.user?.name }}</div><div class="text-xs text-slate-500 truncate">{{ request.user?.email }}</div></div>
-                                            </div>
-                                        </td>
-                                        <td class="px-3 py-4 whitespace-nowrap w-36">
-                                            <div class="text-sm text-slate-900">{{ formatDate(request.start_date) }}<span v-if="request.start_date !== request.end_date"> - {{ formatDate(request.end_date) }}</span></div>
-                                            <div v-if="request.day_type === 'half'" class="text-xs text-slate-500 mt-1">{{ request.start_half_session || 'full' }} session<span v-if="request.start_date !== request.end_date"> to {{ request.end_half_session || 'full' }} session</span></div>
-                                        </td>
-                                        <td class="px-3 py-4 whitespace-nowrap w-20">
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize" :class="{'bg-blue-100 text-blue-800': request.leave_type === 'annual', 'bg-green-100 text-green-800': request.leave_type === 'sick', 'bg-yellow-100 text-yellow-800': request.leave_type === 'personal', 'bg-red-100 text-red-800': request.leave_type === 'emergency', 'bg-pink-100 text-pink-800': request.leave_type === 'maternity', 'bg-purple-100 text-purple-800': request.leave_type === 'paternity'}">{{ request.leave_type }}</span>
-                                        </td>
-                                        <td class="px-3 py-4 whitespace-nowrap w-20 text-sm text-slate-900 font-medium">{{ formatLeaveDays(request.leave_days) }} day{{ request.leave_days !== 1 ? 's' : '' }}</td>
-                                        <td class="px-3 py-4 text-sm text-slate-500"><div class="max-w-xs truncate" :title="request.reason">{{ request.reason }}</div></td>
-                                        <td class="px-3 py-4 whitespace-nowrap w-20"><span :class="statusConfig[request.status].class" class="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center"><span class="mr-1">{{ statusConfig[request.status].icon }}</span><span class="capitalize">{{ request.status }}</span></span></td>
-                                        <td class="px-3 py-4 whitespace-nowrap text-center w-36">
-                                            <div v-if="canManage && request.status === 'pending'" class="flex justify-center gap-1">
-                                                <button @click="updateStatus(request, 'approved')" class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500 transition-colors duration-200" title="Approve">✓</button>
-                                                <button @click="updateStatus(request, 'rejected')" class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500 transition-colors duration-200" title="Reject">✗</button>
-                                            </div>
-                                            <button v-else-if="!canManage && request.status === 'pending'" @click="cancelLeave(request)" class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500 transition-colors duration-200" title="Cancel">✗</button>
-                                            <span v-else class="text-slate-400 text-sm">-</span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+              <td class="px-4 py-3 whitespace-nowrap text-center">
+                <button
+                  @click="openDetailsModal(request)"
+                  class="text-blue-600 hover:underline text-sm font-semibold focus:outline-none"
+                >
+                  View Details
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-                    <!-- Mobile Card View -->
-                    <div class="lg:hidden space-y-4 p-4">
-                        <!-- ✅ FIX: Loop over `leaveRequests.data` -->
-                        <div v-for="request in leaveRequests.data" :key="request.id" class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-                            <!-- ... Your existing mobile card content goes here (no changes needed inside) ... -->
-                        </div>
-                    </div>
-
-                    <!-- ✅ NEW: Pagination Links Section -->
-                    <div v-if="leaveRequests.links.length > 3" class="p-4 border-t border-slate-200">
-                        <div class="flex flex-wrap -mb-1">
-                            <template v-for="(link, key) in leaveRequests.links" :key="key">
-                                <div v-if="link.url === null" class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded" v-html="link.label" />
-                                <Link v-else
-                                    class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500"
-                                    :class="{ 'bg-blue-600 text-white': link.active }"
-                                    :href="link.url"
-                                    v-html="link.label" />
-                            </template>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
+        <!-- Pagination Links -->
+        <div v-if="leaveRequests.links.length > 3" class="px-4 py-5 border-t border-gray-200">
+          <div class="flex flex-wrap justify-center -m-1">
+            <template v-for="(link, index) in leaveRequests.links" :key="index">
+              <span
+                v-if="!link.url"
+                class="m-1 px-4 py-2 text-gray-400 border rounded cursor-default"
+                v-html="link.label"
+              ></span>
+              <a
+                v-else
+                :href="link.url"
+                class="m-1 px-4 py-2 border rounded hover:bg-white hover:text-indigo-600"
+                :class="{ 'bg-indigo-600 text-white': link.active }"
+                v-html="link.label"
+              ></a>
+            </template>
+          </div>
         </div>
-    </AuthenticatedLayout>
+      </div>
+
+      <!-- Leave Details Modal -->
+<div
+  v-if="isDetailsModalOpen"
+  @click.self="closeDetailsModal"
+  class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+>
+  <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col">
+    <div class="flex justify-between items-center mb-3 pb-2 border-b">
+      <h2 class="text-lg font-bold">Leave Application Details</h2>
+      <button class="text-2xl text-gray-500 hover:text-gray-700" @click="closeDetailsModal">&times;</button>
+    </div>
+    <div v-if="selectedLeave" class="space-y-3">
+      <div><span class="font-medium">Employee:</span> {{ selectedLeave.user?.name }}</div>
+      <div><span class="font-medium">Leave Type:</span> {{ selectedLeave.leave_type }}</div>
+      <div>
+        <span class="font-medium">Dates:</span>
+        {{ formatDate(selectedLeave.start_date) }}
+        <span v-if="selectedLeave.start_date !== selectedLeave.end_date"> - {{ formatDate(selectedLeave.end_date) }}</span>
+      </div>
+      <div>
+        <span class="font-medium">Duration:</span>
+        {{ formatLeaveDays(selectedLeave.leave_days) }} day<span v-if="selectedLeave.leave_days !== 1">s</span>
+      </div>
+      <div>
+        <span class="font-medium">Sessions:</span>
+        <template v-if="selectedLeave.day_type === 'half'">
+          {{ selectedLeave.start_half_session }} session
+          <span v-if="selectedLeave.start_date !== selectedLeave.end_date">
+            to {{ selectedLeave.end_half_session }} session
+          </span>
+        </template>
+        <template v-else>Full Day</template>
+      </div>
+      <div>
+        <span class="font-medium">Reason:</span>
+        <p class="whitespace-pre-line mt-1 text-gray-700">{{ selectedLeave.reason }}</p>
+      </div>
+      <div><span class="font-medium">Status:</span> {{ selectedLeave.status }}</div>
+      <div>
+        <span class="font-medium">Supporting Document:</span>
+        <span v-if="selectedLeave.supporting_document_path">
+          <a
+            :href="`/storage/${selectedLeave.supporting_document_path}`"
+            target="_blank"
+            class="text-indigo-600 underline"
+          >
+            View Document
+          </a>
+        </span>
+        <span v-else class="text-gray-400 ml-2">None</span>
+      </div>
+
+      <!-- Sick leave upload/replace document button -->
+      <!-- <div v-if="selectedLeave.leave_type === 'sick' && ['pending', 'approved'].includes(selectedLeave.status)">
+        <PrimaryButton @click="() => { openUploadModal(selectedLeave.id); closeDetailsModal(); }" class="mt-4">
+          {{ selectedLeave.supporting_document_path ? 'Replace Document' : 'Upload Document' }}
+        </PrimaryButton>
+      </div> -->
+
+      <!-- Approve/Reject buttons (only if pending) -->
+      <div v-if="selectedLeave.status === 'pending'" class="mt-4 flex gap-3">
+        <PrimaryButton
+          @click="() => { updateStatus(selectedLeave, 'approved'); closeDetailsModal(); }"
+          class="bg-green-600 hover:bg-green-700"
+        >
+          Approve
+        </PrimaryButton>
+        <PrimaryButton
+          @click="() => { updateStatus(selectedLeave, 'rejected'); closeDetailsModal(); }"
+          class="bg-red-600 hover:bg-red-700"
+        >
+          Reject
+        </PrimaryButton>
+      </div>
+    </div>
+    <div class="mt-6 flex justify-end">
+      <button @click="closeDetailsModal" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 font-medium">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+
+      <!-- Upload Supporting Document Modal -->
+      <div
+        v-if="isUploadModalVisible"
+        @click.self="closeUploadModal"
+        class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300"
+      >
+        <form
+          @submit.prevent="submitUpload"
+          enctype="multipart/form-data"
+          class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
+        >
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Upload Supporting Document</h3>
+          <input
+            id="upload_file"
+            type="file"
+            @change="onUploadFileChange"
+            accept=".pdf,.jpg,.jpeg,.png"
+            required
+            class="w-full"
+          />
+          <div v-if="uploadErrors.supporting_document" class="text-sm text-red-600">{{ uploadErrors.supporting_document }}</div>
+          <div class="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              @click="closeUploadModal"
+              class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <PrimaryButton type="submit" :disabled="uploadProcessing">
+              {{ uploadProcessing ? 'Uploading...' : 'Upload' }}
+            </PrimaryButton>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </AuthenticatedLayout>
 </template>

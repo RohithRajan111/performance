@@ -134,15 +134,15 @@ const navigationItems = computed(() => {
             icon: 'Manage Roles'
         },
 
-          {
-        // ✅ NEW: Added the Leave Logs item
-        name: 'Leave Logs',
-        route: 'leave.logs',
-        active: route().current('leave.logs'),
-        // Show this to anyone who can apply for leave or manage leaves
-        show: user.value.permissions.includes('apply for leave') || user.value.permissions.includes('manage leave applications'),
-        icon: 'Leave Logs' // You might need a corresponding icon component
-    },
+        {
+            // ✅ NEW: Added the Leave Logs item
+            name: 'Leave Logs',
+            route: 'leave.logs',
+            active: route().current('leave.logs'),
+            // Show this to anyone who can apply for leave or manage leaves
+            show: user.value.permissions.includes('manage employees') || user.value.permissions.includes('manage leave applications'),
+            icon: 'Leave Logs' // You might need a corresponding icon component
+        },
 
         {
             name: 'Projects',

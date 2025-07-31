@@ -23,44 +23,51 @@ class LeaveController extends Controller
      * @return \Inertia\Response
      */
     public function showLogs(Request $request)
-    {
-        // 1. Get the currently authenticated user.
-        $user = Auth::user();
+{
+    $user = Auth::user();
 
-        // 2. Determine if the user has permission to manage leaves.
-        //    This uses Laravel's built-in authorization and is the best practice.
-        //    Make sure you have a Gate or Policy defined for 'manage leave applications'.
-        $canManage = $user->can('manage leave applications');
+    // Confirm user is authorized to manage leave applications (e.g. middleware or gate)
+    abort_unless($user->can('manage leave applications'), 403);
 
-        // 3. Start building the database query for Leave Applications.
-        $query = LeaveApplication::query()
-            // Eager-load the 'user' relationship to prevent performance issues (N+1 problem).
-            // We only select the columns needed by the Vue component for efficiency.
-            ->with('user:id,name,email')
-            // Order the results with the most recent leave dates first.
-            ->orderBy('start_date', 'desc');
+    $leaveRequests = LeaveApplication::with('user:id,name,email')
+        ->orderByRaw("CASE status
+            WHEN 'pending' THEN 1
+            WHEN 'approved' THEN 2
+            WHEN 'rejected' THEN 3
+            ELSE 4
+        END")
+        ->latest()
+        ->paginate(15);
 
-        // 4. Apply the correct data scope based on the user's role.
-        if ($canManage) {
-            // A manager can see all leave requests.
-            // No additional filtering is needed on the query.
-            // If you wanted them to only see their team, you would add that logic here.
-        } else {
-            // A regular employee can only see their own leave requests.
-            // This is a critical security/privacy filter.
-            $query->where('user_id', $user->id);
-        }
+    return Inertia::render('Leave/LeaveLogs', [
+        'leaveRequests' => $leaveRequests,
+        'canManage' => true,
+    ]);
+}
+public function fullRequests(Request $request)
+{
+    $user = auth()->user();
 
-        // 5. Execute the query and paginate the results.
-        //    This prevents loading thousands of records at once, ensuring the page is fast.
-        $leaveRequests = $query->paginate(15); // You can adjust the number per page
+    // Base query for user's leave requests (modify if admin can see all)
+    $query = LeaveApplication::with('user:id,name')
+        ->where('user_id', $user->id)
+        ->orderBy('start_date', 'desc');
 
-        // 6. Render the Inertia Vue component and pass the data as props.
-        //    The prop names here ('leaveRequests', 'canManage') must match the
-        //    defineProps in your LeaveLogs.vue file.
-        return Inertia::render('Leave/LeaveLogs', [
-            'leaveRequests' => $leaveRequests,
-            'canManage' => $canManage,
-        ]);
+    // Optional: add filters if coming from query string
+    if ($request->filled('status')) {
+        $query->where('status', $request->input('status'));
     }
+    if ($request->filled('leave_type')) {
+        $query->where('leave_type', $request->input('leave_type'));
+    }
+
+    $leaveRequests = $query->paginate(15)->withQueryString();
+
+    return Inertia::render('Leave/FullRequests', [
+        'leaveRequests' => $leaveRequests,
+        'filters' => $request->only(['status', 'leave_type']),
+    ]);
+}
+
+
 }

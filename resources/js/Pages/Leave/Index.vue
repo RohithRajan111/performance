@@ -9,9 +9,9 @@ import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 
+
 const props = defineProps({
-  leaveRequests: Array,
-  canManage: Boolean,
+  leaveRequests: Object,      // Paginated leave requests
   highlightedDates: Array,
   remainingLeaveBalance: Number,
 })
@@ -244,56 +244,7 @@ const leaveTypeDescriptions = {
       "Balance accrued based on tenure (typically 15-25 days/year)"
     ],
   },
-  sick: {
-    title: "Sick Leave",
-    summary: "For illness or medical appointments",
-    details: [
-      "Can be requested with short notice",
-      "Doctor's note required for absences longer than 3 days",
-      "Typically up to 10 paid days/year",
-      "Covers medical appointments and contagious illnesses",
-    ],
-  },
-  personal: {
-    title: "Personal Leave",
-    summary: "For personal matters requiring 3+ days notice",
-    details: [
-      "Requires at least 3 days notice when possible",
-      "Limited to 5 paid days/year",
-      "Examples: Family emergencies, urgent personal business",
-      "Not for routine errands or non-urgent matters",
-    ],
-  },
-  emergency: {
-    title: "Emergency Leave",
-    summary: "Unplanned urgent situations",
-    details: [
-      "No advance notice required",
-      "Typically unpaid after 3 days",
-      "Examples: Natural disasters, serious family emergencies",
-      "Documentation may be required for extended leave",
-    ],
-  },
-  maternity: {
-    title: "Maternity Leave",
-    summary: "For new mothers (typically 12+ weeks)",
-    details: [
-      "Typically 12 weeks paid (varies by location)",
-      "Requires 30 days notice when possible",
-      "Medical documentation required",
-      "Can be combined with other leave types",
-    ],
-  },
-  paternity: {
-    title: "Paternity Leave",
-    summary: "For new fathers (typically 2-4 weeks)",
-    details: [
-      "Typically 2-4 weeks paid",
-      "Can be taken within 6 months of birth/adoption",
-      "Requires 30 days notice when possible",
-      "Can be taken intermittently in some cases",
-    ],
-  },
+  // add other leave types as needed here
 }
 
 const leaveTypeTags = {
@@ -303,7 +254,12 @@ const leaveTypeTags = {
   default: 'bg-gray-100 text-gray-600',
 }
 
-const getTagClass = type => leaveTypeTags[type.toLowerCase()] || leaveTypeTags.default
+const getTagClass = (type) => {
+  if (!type || typeof type !== 'string') {
+    return leaveTypeTags.default
+  }
+  return leaveTypeTags[type.toLowerCase()] || leaveTypeTags.default
+}
 
 function formatLeaveDays(days) {
   const num = Number(days)
@@ -312,6 +268,7 @@ function formatLeaveDays(days) {
   return num % 1 === 0 ? num.toString() : num.toFixed(1)
 }
 
+// Upload Document modal state
 const isUploadModalVisible = ref(false)
 const uploadFile = ref(null)
 const uploadErrors = ref({})
@@ -361,6 +318,20 @@ const submitUpload = () => {
     },
   })
 }
+
+// Your Requests Modal state and methods
+const isRequestsModalVisible = ref(false)
+function openRequestsModal() {
+  isRequestsModalVisible.value = true
+}
+function closeRequestsModal() {
+  isRequestsModalVisible.value = false
+}
+
+// Compute the most recent 5 requests for modal display
+const recentRequests = computed(() => {
+  return (props.leaveRequests.data || []).slice(0, 5)
+})
 </script>
 
 <template>
@@ -369,15 +340,20 @@ const submitUpload = () => {
     <div class="p-6 bg-gray-50 min-h-screen">
       <h1 class="text-3xl font-bold text-gray-800 mb-6">Leave</h1>
 
-      <!-- Upcoming/Pending leave requests + controls -->
+      <!-- Controls -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm">
           <h2 class="text-lg font-semibold text-gray-700 mb-4">Upcoming/Pending leave requests</h2>
           <div class="space-y-3">
+            <!-- Your existing placeholder or real upcoming requests -->
             <div v-for="i in 2" :key="i" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div class="flex items-center gap-4">
                 <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  <!-- SVG icon -->
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
                 </div>
                 <div>
                   <p class="font-semibold text-gray-800">06 Apr 2025</p>
@@ -392,20 +368,19 @@ const submitUpload = () => {
             </div>
           </div>
         </div>
+
         <div class="space-y-3 flex flex-col justify-between">
           <button @click="scrollToLeaveForm" class="w-full text-left bg-blue-600 text-white p-4 rounded-lg shadow-sm hover:bg-blue-700 transition font-medium">
             Apply Leave
           </button>
-          <button class="w-full text-left bg-white text-gray-700 p-4 rounded-lg shadow-sm hover:bg-gray-100 transition font-medium">
-            Request Compensatory Off
+          <button @click="openRequestsModal" class="w-full text-left bg-gray-200 text-gray-800 p-4 rounded-lg shadow-sm hover:bg-gray-300 transition font-medium">
+            Your Requests
           </button>
           <button @click="openPolicyModal" class="w-full text-left bg-white text-gray-700 p-4 rounded-lg shadow-sm hover:bg-gray-100 transition font-medium">
             View Leave Policy
           </button>
         </div>
       </div>
-
-      <!-- Available Leaves Section (optional, add your own if you want) -->
 
       <!-- Leave Request Form -->
       <div ref="leaveFormSection" class="bg-white rounded-lg shadow overflow-hidden mb-6">
@@ -439,7 +414,8 @@ const submitUpload = () => {
             </div>
             <div>
               <InputLabel for="leave_type" value="Leave Type" class="text-sm font-medium text-gray-700 mb-1" />
-              <select id="leave_type" v-model="form.leave_type" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+              <select id="leave_type" v-model="form.leave_type" required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
                 <option value="annual">Annual Leave</option>
                 <option value="sick">Sick Leave</option>
                 <option value="personal">Personal Leave</option>
@@ -449,8 +425,12 @@ const submitUpload = () => {
               </select>
               <InputError :message="form.errors.leave_type" />
               <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <h4 class="font-medium text-gray-800 mb-1">{{ leaveTypeDescriptions[form.leave_type].title }}</h4>
-                <p class="text-sm text-gray-600 mb-2">{{ leaveTypeDescriptions[form.leave_type].summary }}</p>
+                <h4 class="font-medium text-gray-800 mb-1">
+                  {{ leaveTypeDescriptions[form.leave_type]?.title || 'Unknown Leave Type' }}
+                </h4>
+                <p class="text-sm text-gray-600 mb-2">
+                  {{ leaveTypeDescriptions[form.leave_type]?.summary || 'Details not available' }}
+                </p>
               </div>
             </div>
             <div>
@@ -519,138 +499,140 @@ const submitUpload = () => {
         </form>
       </div>
 
-      <!-- Applied Leaves Table -->
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div class="xl:col-span-2 bg-white p-6 rounded-lg shadow-sm">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold text-gray-700">Applied Leaves</h2>
-          </div>
+      <!-- Your Requests Modal -->
+      <div
+        v-if="isRequestsModalVisible"
+        @click.self="closeRequestsModal"
+        class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+      >
+        <div class="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto shadow-lg">
+          <header class="flex justify-between items-center p-4 border-b">
+            <h2 class="text-xl font-semibold text-gray-800">My Recent Leave Requests</h2>
+            <button
+              @click="closeRequestsModal"
+              class="text-gray-500 hover:text-gray-800 text-3xl leading-none font-bold focus:outline-none"
+              aria-label="Close"
+              title="Close"
+            >
+              &times;
+            </button>
+          </header>
 
-          <div v-if="props.leaveRequests.length === 0" class="p-8 text-center">
-            <div class="text-gray-400 text-lg">No leave requests found</div>
-          </div>
-          <div v-else class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead>
-                <tr class="text-left text-gray-500 font-medium">
-                  <th class="py-2 px-3">Date</th>
-                  <th class="py-2 px-3">Type</th>
-                  <th class="py-2 px-3">Reason</th>
-                  <th class="py-2 px-3">Requested</th>
-                  <th class="py-2 px-3 text-center">Document</th>
-                  <th class="py-2 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                <tr v-for="request in props.leaveRequests" :key="request.id" class="text-gray-700 hover:bg-gray-50">
-                  <td class="py-3 px-3">
-                    <p class="font-semibold">{{ new Date(request.start_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) }}</p>
-                  </td>
-                  <td class="py-3 px-3">
-                    <span :class="getTagClass(request.leave_type)" class="px-2 py-1 text-xs font-medium rounded-full capitalize">{{ request.leave_type }}</span>
-                  </td>
-                  <td class="py-3 px-3 max-w-[200px] truncate">{{ request.reason }}</td>
-                  <td class="py-3 px-3">
-                    <p>{{ new Date(request.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) }}</p>
-                    <p class="text-xs text-gray-500">{{ new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }}</p>
-                  </td>
-
-                  <td class="py-3 px-3 text-center whitespace-nowrap space-y-1">
-                    <div>
-                      <a v-if="request.supporting_document_path" :href="`/storage/${request.supporting_document_path}`" target="_blank"
-                         class="text-indigo-600 hover:underline inline-flex items-center justify-center gap-1" title="View supporting document">
-                        View
-                      </a>
-                      <span v-else class="text-gray-400 text-xs italic">—</span>
-                    </div>
-                    <div v-if="request.leave_type === 'sick' && ['pending', 'approved'].includes(request.status)">
-                      <button @click="openUploadModal(request.id)" class="text-blue-600 hover:underline text-xs mt-1">
-                        {{ request.supporting_document_path ? 'Replace Document' : 'Upload Document' }}
-                      </button>
-                    </div>
-                  </td>
-
-                  <td class="py-3 px-3 text-right">
-                    <div class="flex flex-col items-end gap-1">
-                      <div v-if="canManage && request.status === 'pending'" class="space-x-2">
-                        <button @click="updateStatus(request, 'approved')" class="text-green-600 hover:text-green-900 font-semibold">Approve</button>
-                        <button @click="updateStatus(request, 'rejected')" class="text-red-600 hover:text-red-900 font-semibold">Reject</button>
+          <section class="p-4">
+            <div v-if="recentRequests.length === 0" class="text-center text-gray-600 py-12">
+              No recent leave requests found.
+            </div>
+            <div v-else class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead>
+                  <tr class="text-left text-gray-500 font-medium">
+                    <th class="py-2 px-3">Date</th>
+                    <th class="py-2 px-3">Type</th>
+                    <th class="py-2 px-3">Reason</th>
+                    <th class="py-2 px-3">Requested</th>
+                    <th class="py-2 px-3 text-center">Document</th>
+                    <th class="py-2 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  <tr v-for="request in recentRequests" :key="request.id" class="text-gray-700 hover:bg-gray-50">
+                    <td class="py-3 px-3">
+                      <p class="font-semibold">
+                        {{ new Date(request.start_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) }}
+                      </p>
+                    </td>
+                    <td class="py-3 px-3">
+                      <span :class="getTagClass(request.leave_type)" class="px-2 py-1 text-xs font-medium rounded-full capitalize">
+                        {{ request.leave_type }}
+                      </span>
+                    </td>
+                    <td class="py-3 px-3 max-w-[200px] truncate">{{ request.reason }}</td>
+                    <td class="py-3 px-3">
+                      <p>
+                        {{ new Date(request.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) }}
+                      </p>
+                      <p class="text-xs text-gray-500">
+                        {{ new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }}
+                      </p>
+                    </td>
+                    <td class="py-3 px-3 text-center whitespace-nowrap space-y-1">
+                      <div>
+                        <a
+                          v-if="request.supporting_document_path"
+                          :href="`/storage/${request.supporting_document_path}`"
+                          target="_blank"
+                          class="text-indigo-600 hover:underline inline-flex items-center justify-center gap-1"
+                          title="View supporting document"
+                        >
+                          View
+                        </a>
+                        <span v-else class="text-gray-400 text-xs italic">—</span>
                       </div>
-                      <button v-else-if="!canManage && request.status === 'pending'" @click="cancelLeave(request)" class="text-red-600 hover:text-red-900 font-semibold">Cancel</button>
-                      <button v-else class="text-gray-400 hover:text-gray-600">⋮</button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      <div v-if="request.leave_type === 'sick' && ['pending', 'approved'].includes(request.status)">
+                        <button @click="() => { openUploadModal(request.id); closeRequestsModal(); }" class="text-blue-600 hover:underline text-xs mt-1">
+                          {{ request.supporting_document_path ? 'Replace Document' : 'Upload Document' }}
+                        </button>
+                      </div>
+                    </td>
+                    <td class="py-3 px-3 text-right">
+                      <button v-if="request.status === 'pending'" @click="cancelLeave(request)" class="text-red-600 hover:text-red-900 font-semibold">Cancel</button>
+                      <span v-else class="text-gray-400">-</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
 
-        <!-- Upcoming Holidays (Optional) -->
-        <div class="bg-white p-6 rounded-lg shadow-sm">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold text-gray-700">Upcoming Holidays</h2>
-            <select class="border-gray-300 rounded-md text-sm py-1 focus:ring-blue-500 focus:border-blue-500">
-              <option>2025</option>
-              <option>2024</option>
-            </select>
-          </div>
-          <div class="space-y-4 max-h-[192px] overflow-y-auto">
-            <div v-for="holiday in [
-              { date: '01', month: 'Jan 2025', name: `New Year's Day` },
-              { date: '21', month: 'Jan 2025', name: 'M.L.K. Jr Day' },
-              { date: '18', month: 'Feb 2025', name: `President's Day` },
-              { date: '27', month: 'May 2025', name: 'Memorial Day' },
-              { date: '25', month: 'Apr 2025', name: 'Easter' },
-              { date: '04', month: 'Jul 2025', name: 'Independence Day' }
-            ]" :key="holiday.name" class="flex items-center gap-4">
-              <div class="bg-gray-100 p-3 rounded-lg text-center w-16 shrink-0">
-                <p class="font-bold text-gray-800">{{ holiday.date }}</p>
-                <p class="text-xs text-gray-500">{{ holiday.month }}</p>
+              <!-- View All Requests Button -->
+              <div class="mt-4 text-center">
+                <PrimaryButton
+                  @click="() => { closeRequestsModal(); router.visit(route('leave.fullRequests')) }"
+                  class="inline-block"
+                >
+                  View All Requests
+                </PrimaryButton>
               </div>
-              <p class="font-medium text-gray-600">{{ holiday.name }}</p>
+
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Leave Policy Modal -->
+      <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95" :class="{ 'scale-100': isPolicyModalVisible }">
+          <div class="p-5 border-b flex justify-between items-center">
+            <h3 class="text-xl font-semibold text-gray-800">Company Leave Policy</h3>
+            <button @click="closePolicyModal" class="text-gray-400 hover:text-gray-800 text-3xl leading-none">×</button>
+          </div>
+          <div class="p-6 overflow-y-auto space-y-6">
+            <div v-for="(policy, type) in leaveTypeDescriptions" :key="type" class="pb-4 border-b last:border-b-0">
+              <h4 class="text-lg font-semibold text-gray-700 mb-2 capitalize">{{ policy.title }}</h4>
+              <p class="text-sm text-gray-600 mb-3 italic">"{{ policy.summary }}"</p>
+              <ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
+                <li v-for="(detail, index) in policy.details" :key="index">{{ detail }}</li>
+              </ul>
             </div>
           </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Leave Policy Modal -->
-    <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
-      <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95" :class="{ 'scale-100': isPolicyModalVisible }">
-        <div class="p-5 border-b flex justify-between items-center">
-          <h3 class="text-xl font-semibold text-gray-800">Company Leave Policy</h3>
-          <button @click="closePolicyModal" class="text-gray-400 hover:text-gray-800 text-3xl leading-none">×</button>
-        </div>
-        <div class="p-6 overflow-y-auto space-y-6">
-          <div v-for="(policy, type) in leaveTypeDescriptions" :key="type" class="pb-4 border-b last:border-b-0">
-            <h4 class="text-lg font-semibold text-gray-700 mb-2 capitalize">{{ policy.title }}</h4>
-            <p class="text-sm text-gray-600 mb-3 italic">"{{ policy.summary }}"</p>
-            <ul class="list-disc list-inside space-y-1.5 text-sm text-gray-700">
-              <li v-for="(detail, index) in policy.details" :key="index">{{ detail }}</li>
-            </ul>
+          <div class="p-4 bg-gray-50 text-right rounded-b-xl">
+            <button @click="closePolicyModal" class="bg-gray-200 text-gray-800 px-5 py-2 rounded-lg hover:bg-gray-300 font-semibold text-sm">Close</button>
           </div>
         </div>
-        <div class="p-4 bg-gray-50 text-right rounded-b-xl">
-          <button @click="closePolicyModal" class="bg-gray-200 text-gray-800 px-5 py-2 rounded-lg hover:bg-gray-300 font-semibold text-sm">Close</button>
-        </div>
       </div>
-    </div>
 
-    <!-- Upload Document Modal -->
-    <div v-if="isUploadModalVisible" @click.self="closeUploadModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
-      <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">Upload Supporting Document</h3>
-        <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
-        <div v-if="uploadErrors.supporting_document" class="text-sm text-red-600">{{ uploadErrors.supporting_document }}</div>
-        <div class="flex justify-end gap-3 pt-2">
-          <button type="button" @click="closeUploadModal" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100">Cancel</button>
-          <PrimaryButton type="submit" :disabled="uploadProcessing">{{ uploadProcessing ? 'Uploading...' : 'Upload' }}</PrimaryButton>
-        </div>
-      </form>
-    </div>
+      <!-- Upload Supporting Document Modal -->
+      <div v-if="isUploadModalVisible" @click.self="closeUploadModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
+        <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Upload Supporting Document</h3>
+          <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
+          <div v-if="uploadErrors.supporting_document" class="text-sm text-red-600">{{ uploadErrors.supporting_document }}</div>
+          <div class="flex justify-end gap-3 pt-2">
+            <button type="button" @click="closeUploadModal" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100">Cancel</button>
+            <PrimaryButton type="submit" :disabled="uploadProcessing">{{ uploadProcessing ? 'Uploading...' : 'Upload' }}</PrimaryButton>
+          </div>
+        </form>
+      </div>
 
+    </div>
   </AuthenticatedLayout>
 </template>
 
