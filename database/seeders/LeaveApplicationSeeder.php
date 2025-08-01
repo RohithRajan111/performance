@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\LeaveApplication;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 class LeaveApplicationSeeder extends Seeder
 {
@@ -35,7 +34,7 @@ class LeaveApplicationSeeder extends Seeder
             ]);
 
             // Approved half-day sick leave
-             LeaveApplication::factory()->create([
+            LeaveApplication::factory()->create([
                 'user_id' => $user->id,
                 'start_date' => now()->subDays(rand(1, 3)),
                 'end_date' => now()->subDays(rand(1, 3)),

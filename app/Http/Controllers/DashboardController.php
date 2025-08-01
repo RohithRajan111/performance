@@ -8,14 +8,9 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Collection;
-// [+] Import the necessary services for performance stats
-use App\Services\TaskStatsService;
-use App\Services\TimeStatsService;
-use App\Services\LeaveStatsService;
 
 class DashboardController extends Controller
 {
@@ -43,8 +38,8 @@ class DashboardController extends Controller
         $absentTodayUsers = User::whereHas('leaveApplications', function ($query) {
             $today = now()->toDateString();
             $query->where('status', 'approved')
-                  ->where('start_date', '<=', $today)
-                  ->where('end_date', '>=', $today);
+                ->where('start_date', '<=', $today)
+                ->where('end_date', '>=', $today);
         })->get();
 
         $attendanceData = [
@@ -68,29 +63,45 @@ class DashboardController extends Controller
         // --- CALENDAR DATA (Unchanged) ---
         $leaveEvents = LeaveApplication::where('user_id', $user->id)
             ->where('status', 'approved')
-            ->get()->map(fn($leave) => [
-                'id' => 'leave_' . $leave->id,
-                'title' => ucfirst($leave->leave_type) . ' Leave',
-                'start' => $leave->start_date,
-                'end' => $leave->start_date === $leave->end_date ? null : Carbon::parse($leave->end_date)->addDay()->toDateString(),
-                'allDay' => true,
-                'backgroundColor' => $this->getLeaveColor($leave->leave_type),
-                'borderColor' => $this->getLeaveColor($leave->leave_type),
-                'textColor' => '#ffffff',
-                'extendedProps' => ['type' => 'leave']
-            ]);
+            ->get()
+            ->map(function ($leave) {
+                return [
+                    'id' => 'leave_'.$leave->id,
+                    'title' => ucfirst($leave->leave_type).' Leave',
+                    'start' => $leave->start_date, // Just date, no time
+                    'end' => $leave->start_date === $leave->end_date
+                        ? null // Single day event
+                        : Carbon::parse($leave->end_date)->addDay()->toDateString(),
+                    'allDay' => true, // This is crucial - makes it an all-day event
+                    'backgroundColor' => $this->getLeaveColor($leave->leave_type),
+                    'borderColor' => $this->getLeaveColor($leave->leave_type),
+                    'textColor' => '#ffffff',
+                    'extendedProps' => [
+                        'type' => 'leave',
+                        'leave_type' => $leave->leave_type,
+                        'status' => $leave->status,
+                        'day_type' => $leave->day_type ?? 'full_day',
+                    ],
+                ];
+            });
 
         $noteEvents = CalendarNote::where('user_id', $user->id)
-            ->get()->map(fn($note) => [
-                'id' => 'note_' . $note->id,
-                'title' => $note->note,
-                'start' => $note->date,
-                'allDay' => true,
-                'backgroundColor' => '#FBBF24',
-                'borderColor' => '#F59E0B',
-                'textColor' => '#000000',
-                'extendedProps' => ['type' => 'note', 'note_id' => $note->id]
-            ]);
+            ->get()
+            ->map(function ($note) {
+                return [
+                    'id' => 'note_'.$note->id,
+                    'title' => $note->note,
+                    'start' => $note->date,
+                    'allDay' => true, // Notes are also all-day events
+                    'backgroundColor' => '#FBBF24',
+                    'borderColor' => '#F59E0B',
+                    'textColor' => '#000000',
+                    'extendedProps' => [
+                        'type' => 'note',
+                        'note_id' => $note->id,
+                    ],
+                ];
+            });
 
         $allCalendarEvents = (new Collection($leaveEvents))->merge($noteEvents);
 

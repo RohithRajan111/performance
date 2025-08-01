@@ -35,25 +35,27 @@ class LeaveApplicationController extends Controller
 
     public function update(UpdateLeaveRequest $request, LeaveApplication $leave_application, UpdateLeave $updateLeaveStatus)
     {
-        $updateLeaveStatus->handle($leave_application, $request->validated()['status']);
+        $data = $request->validated();
+
+        $status = $data['status'];  // string 'approved' or 'rejected'
+        $rejectionReason = $data['rejection_reason'] ?? null;  // string or null
+
+        $updateLeaveStatus->handle($leave_application, $status, $rejectionReason);
 
         return Redirect::back()->with('success', 'Application status updated.');
     }
 
-
-
-    public function cancel(LeaveApplication $leave_application)
+    public function updateReason(Request $request, LeaveApplication $leave_application)
     {
-        if ($leave_application->user_id !== Auth::id() || $leave_application->status !== 'pending') {
-            abort(403, 'Unauthorized action.');
-        }
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+        $leave_application->update(['reason' => $validated['reason']]);
 
-        $leave_application->delete();
-
-        return Redirect::route('leave.index')->with('success', 'Leave request canceled.');
+        return back()->with('success', 'Reason updated.');
     }
 
-      public function calendar(Request $request)
+    public function calendar(Request $request)
     {
         // Log incoming request for debugging
         Log::info('Calendar request received', [
@@ -171,6 +173,17 @@ class LeaveApplicationController extends Controller
         return Inertia::render('Leave/Calendar', $response);
     }
 
+    public function cancel(LeaveApplication $leave_application)
+    {
+        if ($leave_application->user_id !== auth()->id() || $leave_application->status !== 'pending') {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $leave_application->delete();
+
+        return Redirect::route('leave.index')->with('success', 'Leave request canceled.');
+    }
+
     public function uploadDocument(Request $request, LeaveApplication $leave_application)
     {
         if ($leave_application->user_id !== auth()->id()) {
@@ -193,27 +206,5 @@ class LeaveApplicationController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Supporting document uploaded successfully.');
-    }
-
-     public function showLogs(Request $request)
-    {
-        $user = Auth::user();
-        $canManage = $user->hasRole('manager'); // Or however you check for manager permissions
-
-        $query = LeaveApplication::with('user:id,name,email')->orderBy('start_date', 'desc');
-
-        if ($canManage) {
-            // A manager can see all requests
-            $leaveRequests = $query->get();
-        } else {
-            // A regular user can only see their own requests
-            $leaveRequests = $query->where('user_id', $user->id)->get();
-        }
-
-        // Render the new Leave/LeaveLogs view with the necessary data
-        return Inertia::render('Leave/LeaveLogs', [
-            'leaveRequests' => $leaveRequests,
-            'canManage' => $canManage,
-        ]);
     }
 }

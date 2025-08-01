@@ -5,14 +5,13 @@ namespace Database\Seeders;
 use App\Models\Project;
 use App\Models\Task;
 use Illuminate\Database\Seeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 class TaskSeeder extends Seeder
 {
     public function run(): void
     {
         $project = Project::where('name', 'Project Alpha')->first();
-        if (!$project) {
+        if (! $project) {
             return; // Don't run if the project doesn't exist
         }
 

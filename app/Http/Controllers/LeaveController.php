@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Inertia\Inertia;
 use App\Models\LeaveApplication;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class LeaveController extends Controller
 {
     // ... your other existing controller methods like create(), store(), update(), etc. ...
-
 
     /**
      * Display a list of all relevant leave applications for the user.
@@ -19,39 +18,68 @@ class LeaveController extends Controller
      * Managers can see all leave requests, while employees can only see their own.
      * The data is paginated for performance and passed to the Inertia front-end.
      *
-     * @param Request $request The incoming HTTP request.
+     * @param  Request  $request  The incoming HTTP request.
      * @return \Inertia\Response
      */
     public function showLogs(Request $request)
     {
-        // 1. Get the currently authenticated user.
         $user = Auth::user();
 
-        // 2. Determine if the user has permission to manage leaves.
-        //    This uses Laravel's built-in authorization and is the best practice.
-        //    Make sure you have a Gate or Policy defined for 'manage leave applications'.
-        $canManage = $user->can('manage leave applications');
+        // Confirm user is authorized to manage leave applications (e.g. middleware or gate)
+        abort_unless($user->can('manage leave applications'), 403);
 
-        // 3. Start building the database query for Leave Applications.
-        $query = LeaveApplication::query()
-
-            ->with('user:id,name,email')
-
-            ->orderBy('start_date', 'desc');
-
-        if ($canManage) {
-
-        } else {
-
-            $query->where('user_id', $user->id);
-        }
-
-        $leaveRequests = $query->paginate(15);
-
+        $leaveRequests = LeaveApplication::with('user:id,name,email')
+            ->orderByRaw("CASE status
+            WHEN 'pending' THEN 1
+            WHEN 'approved' THEN 2
+            WHEN 'rejected' THEN 3
+            ELSE 4
+        END")
+            ->latest()
+            ->paginate(15);
 
         return Inertia::render('Leave/LeaveLogs', [
             'leaveRequests' => $leaveRequests,
-            'canManage' => $canManage,
+            'canManage' => true,
         ]);
     }
+
+    public function fullRequests(Request $request)
+    {
+        $user = auth()->user();
+        // Base query for user's leave requests (modify if admin can see all)
+        $query = LeaveApplication::with('user:id,name')
+            ->where('user_id', $user->id)
+            ->select(['id', 'user_id', 'start_date', 'end_date', 'reason', 'leave_type', 'status', 'created_at', 'rejection_reason', 'leave_days'])
+            ->orderBy('start_date', 'desc');
+
+        // Optional: add filters if coming from query string
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+        if ($request->filled('leave_type')) {
+            $query->where('leave_type', $request->input('leave_type'));
+        }
+
+        $leaveRequests = $query->paginate(15)->withQueryString();
+
+        return Inertia::render('Leave/FullRequests', [
+            'leaveRequests' => $leaveRequests,
+            'filters' => $request->only(['status', 'leave_type']),
+
+        ]);
+    }
+    // public function update(Request $request, LeaveApplication $leaveApplication)
+    // {
+    //     // ...other logic...
+    //     if ($request->status === 'rejected') {
+    //         $request->validate(['rejection_reason' => 'required|string|max:500']);
+    //         $leaveApplication->reject_reason = $request->rejection_reason;
+    //     }
+    //     // ...other updates...
+    //     $leaveApplication->status = $request->status;
+    //     $leaveApplication->save();
+    //     // ...
+    // }
+
 }

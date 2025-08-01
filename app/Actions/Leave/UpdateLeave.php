@@ -15,10 +15,8 @@ class UpdateLeave
         private LeaveService $leaveService
     ) {}
 
-    public function handle(LeaveApplication $leaveApplication, string $status): void
+    public function handle(LeaveApplication $leaveApplication, string $status, ?string $rejectReason = null): void
     {
-        $leaveApplication->update(['status' => $status]);
-        // Check if the columns exist before trying to update them
         $updateData = ['status' => $status];
 
         if (Schema::hasColumn('leave_applications', 'approved_by')) {
@@ -29,12 +27,18 @@ class UpdateLeave
             $updateData['approved_at'] = now();
         }
 
+        // Save reject_reason if rejecting
+        if ($status === 'rejected') {
+            $updateData['rejection_reason'] = $rejectReason;
+        } else {
+            // Optionally clear reject_reason if status changes to something else
+            $updateData['rejection_reason'] = null;
+        }
+
         $leaveApplication->update($updateData);
 
-        // Clear user's leave cache since status has changed
         $this->leaveService->clearUserLeaveCache($leaveApplication->user);
 
-        // Send notification based on status
         if ($status === 'approved') {
             $leaveApplication->user->notify(new LeaveRequestApproved($leaveApplication));
         } elseif ($status === 'rejected') {
