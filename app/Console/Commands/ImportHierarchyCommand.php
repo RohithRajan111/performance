@@ -2,13 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
-use Carbon\Carbon;
-use Exception;
+use Spatie\Permission\Models\Role;
 
 class ImportHierarchyCommand extends Command
 {
@@ -24,123 +25,145 @@ class ImportHierarchyCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Imports users from an Excel file into the users table, linking managers by name.';
+    protected $description = 'Imports users, roles, and manager relationships from an Excel file.';
 
     /**
      * Execute the console command.
+     *
+     * @return int
      */
     public function handle()
     {
         $filePath = storage_path('app/company_data.xlsx');
 
         if (!file_exists($filePath)) {
-            $this->error("File not found at: {$filePath}");
-            return 1;
+            $this->error("FATAL: File not found at: {$filePath}");
+            return Command::FAILURE;
         }
 
-        $this->info('Starting user import from Excel...');
+        $this->info("File found. Starting import...");
 
         $reader = new Xlsx();
         $spreadsheet = $reader->load($filePath);
         $excelData = $spreadsheet->getActiveSheet()->toArray();
         array_shift($excelData); // Remove header row
 
-        // Optional: Uncomment to clear old data before importing
-        // DB::table('users')->where('id', '>', 1)->delete();
-        // $this->warn('Cleared existing user data (except user ID 1).');
-
         DB::beginTransaction();
         try {
-            // --- PASS 1: INSERT ALL USERS ---
-            $this->info('--- Pass 1: Creating user records ---');
+            // --- PASS 1: CREATE USERS AND ASSIGN ROLES ---
+            $this->info('--- Pass 1: Creating user records and assigning roles ---');
             foreach ($excelData as $rowNumber => $row) {
                 $name = $row[0] ?? null;
                 if (empty($name)) continue;
 
                 $email = strtolower(str_replace(' ', '.', $name)) . '@company.com';
-                if (DB::table('users')->where('email', $email)->exists()) {
-                    $this->warn("User '{$name}' already exists. Skipping insertion.");
+                if (User::where('email', $email)->exists()) {
+                    $this->warn("User '{$name}' with email '{$email}' already exists. Skipping.");
                     continue;
                 }
 
-                // --- ROBUST DATE PARSING LOGIC ---
-                // This function will try multiple formats
-                $parseDate = function($dateString) {
-                    if (empty($dateString)) {
+                // =========================================================================
+                // === NEW & IMPROVED DATE PARSING FUNCTION ===
+                // =========================================================================
+                $parseDate = function($dateString) use ($name, $rowNumber) {
+                    if (empty(trim($dateString))) {
                         return null;
                     }
-                    // Try format 1: dd/mm/yyyy (e.g., 28/06/1990)
-                    try {
-                        return Carbon::createFromFormat('d/m/Y', $dateString)->format('Y-m-d');
-                    } catch (Exception $e) {
-                        // try format 2: d-M-Y (e.g., 28-Jun-1990)
+
+                    // An array of date formats to try in order of priority.
+                    $formats = [
+                        'd/m/Y', // Format: 25/07/2024
+                        'd-M-Y', // Format: 28-Jun-1990
+                        'd-M',   // NEW: Handles birthday format like 27-Oct
+                    ];
+
+                    foreach ($formats as $format) {
                         try {
-                            return Carbon::createFromFormat('d-M-Y', $dateString)->format('Y-m-d');
-                        } catch (Exception $e2) {
-                            // If both fail, return null
-                            return null;
+                            // Attempt to create a Carbon date object from the given format.
+                            $date = Carbon::createFromFormat($format, trim($dateString));
+
+                            // ** Special handling for year-less birthday format **
+                            if ($format === 'd-M') {
+                                // If the format was d-M, the year is missing. We'll set a placeholder.
+                                // The year 2000 is a common convention for this.
+                                $date->setYear(2000);
+                            }
+
+                            // If parsing was successful, return the date in the database format.
+                            return $date->format('Y-m-d');
+
+                        } catch (Exception $e) {
+                            // This format failed, the loop will automatically try the next one.
+                            continue;
                         }
                     }
+
+                    // If the loop completes without returning, none of the formats matched.
+                    $this->warn("Could not parse date '{$dateString}' for user '{$name}' on row " . ($rowNumber + 2) . ". Setting to NULL.");
+                    return null;
                 };
+                // =========================================================================
+                // === END OF NEW DATE PARSING FUNCTION ===
+                // =========================================================================
 
-                $hire_date = $parseDate($row[2] ?? null);
-                $birth_date = $parseDate($row[3] ?? null);
-
-                if (empty($hire_date)) {
-                    $this->warn("Could not parse hire date for '{$name}' on row " . ($rowNumber + 2) . ". Setting to NULL.");
-                }
-                 if (empty($birth_date)) {
-                    $this->warn("Could not parse birth date for '{$name}' on row " . ($rowNumber + 2) . ". Setting to NULL.");
-                }
-                // --- END OF ROBUST DATE PARSING ---
-
-                DB::table('users')->insert([
-                    'name' => $name,
-                    'email' => $email,
-                    'password' => Hash::make('password'),
-                    'designation' => $row[1] ?? null,
-                    'hire_date' => $hire_date,
-                    'birth_date' => $birth_date,
+                // Create the user
+                $user = User::create([
+                    'name'          => $name,
+                    'email'         => $email,
+                    'password'      => Hash::make('password'),
+                    'designation'   => $row[1] ?? null,
+                    'work_mode'     => trim($row[5] ?? null),
+                    'hire_date'     => $parseDate($row[2] ?? null), // Corresponds to DOJ
+                    'birth_date'    => $parseDate($row[3] ?? null), // Now handles 27-Oct
                     'leave_balance' => 20.00,
-                    'parent_id' => null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'parent_id'     => null,
                 ]);
 
-                $this->line("Created user: {$name}");
+                $this->line("Created user: {$user->name}");
+
+                // Role Assignment Logic
+                $processedRoleName = strtolower(trim($row[6] ?? ''));
+                if (!empty($processedRoleName)) {
+                    $role = Role::where('name', $processedRoleName)->first();
+                    if ($role) {
+                        $user->assignRole($role);
+                        $this->line(" -> SUCCESS: Role '{$role->name}' found and assigned.");
+                    } else {
+                        $this->warn(" -> WARNING: Role '{$processedRoleName}' was not found in the database.");
+                    }
+                } else {
+                     $this->warn(" -> WARNING: No role specified in column G for {$user->name}.");
+                }
             }
 
-            // --- PASS 2: LINK MANAGERS ---
-            $this->info('--- Pass 2: Linking managers by setting parent_id ---');
-            $allUsers = DB::table('users')->get(['id', 'name']);
-
+            // Pass 2 remains the same...
+            $this->info('--- Pass 2: Linking managers ---');
+            $allUsers = User::all();
             foreach ($excelData as $row) {
                 $employeeName = $row[0] ?? null;
                 $managerName = $row[4] ?? null;
                 if (empty($employeeName) || empty($managerName)) continue;
-
                 $employeeUser = $allUsers->firstWhere('name', $employeeName);
                 $managerUser = $allUsers->firstWhere('name', $managerName);
-
                 if ($employeeUser && $managerUser) {
-                    DB::table('users')->where('id', $employeeUser->id)->update(['parent_id' => $managerUser->id]);
+                    $employeeUser->update(['parent_id' => $managerUser->id]);
                     $this->line("Linked {$employeeName} -> {$managerName}");
-                } else {
-                    $this->warn("Could not create link for '{$employeeName}'. Check if manager '{$managerName}' exists.");
+                } else if (!$managerUser) {
+                    $this->warn("Could not create link for '{$employeeName}'. Manager '{$managerName}' was not found.");
                 }
             }
 
             DB::commit();
             $this->info('------------------------------------');
             $this->info('User import completed successfully! Data has been saved.');
-            return 0;
+            return Command::SUCCESS;
 
         } catch (Exception $e) {
             DB::rollBack();
-            $this->error('A critical error occurred. Transaction rolled back. Nothing was saved.');
+            $this->error('A critical error occurred. Transaction rolled back.');
             $this->error('Error Message: ' . $e->getMessage());
             $this->error('File: ' . $e->getFile() . ' on line ' . $e->getLine());
-            return 1;
+            return Command::FAILURE;
         }
     }
 }

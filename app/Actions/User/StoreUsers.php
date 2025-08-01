@@ -15,33 +15,28 @@ class StoreUsers
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
-
-            // SIMPLIFIED: If parent_id is not provided, it will default to null.
+            'work_mode' => $data['work_mode'] ?? null,
             'parent_id' => $data['parent_id'] ?? null,
-
-            // CHANGED: The user's direct manager is now the leave approver.
-            // This is a more robust business rule than finding a random HR person.
             'leave_approver_id' => $data['parent_id'] ?? null,
-
-            // ADDED: The team assignment is now part of the user creation.
-            // This is more efficient and assumes a `team_id` column on the users table.
-            'team_id' => ($data['role'] === 'employee' && isset($data['team_id'])) ? $data['team_id'] : null,
-
-            'image' => null, // Default to null
+            // 'team_id' IS REMOVED FROM HERE
+            'image' => null,
         ];
 
-        // Handle image upload if it exists
         if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
             $userData['image'] = $data['image']->store('profile_images', 'public');
         }
 
-        // Create the user with the consolidated data
+        // Create the user first
         $user = User::create($userData);
 
-        // Assign role using Spatie - this must be done after creation
+        // Assign the role
         $user->assignRole($data['role']);
 
-        // The old team attachment block is no longer needed.
+        // --- NEW LOGIC TO HANDLE THE PIVOT TABLE ---
+        // If a team_id is provided, attach the user to that team.
+        if (!empty($data['team_id'])) {
+            $user->teams()->attach($data['team_id']);
+        }
 
         return $user;
     }

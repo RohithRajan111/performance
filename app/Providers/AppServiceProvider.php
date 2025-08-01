@@ -15,22 +15,22 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // This code overrides the default Gemini Client to include a longer timeout.
-        $this->app->singleton(Client::class, function ($app) {
+        // $this->app->singleton(Client::class, function ($app) {
 
-            // 1. Get the API Key from your config file.
-            $apiKey = $app['config']->get('gemini.api_key');
+        //     // 1. Get the API Key from your config file.
+        //     $apiKey = $app['config']->get('gemini.api_key');
 
-            // 2. Create a Guzzle HTTP client with a custom timeout of 120 seconds.
-            $guzzleClient = new GuzzleClient([
-                'timeout' => 120,
-            ]);
+        //     // 2. Create a Guzzle HTTP client with a custom timeout of 120 seconds.
+        //     $guzzleClient = new GuzzleClient([
+        //         'timeout' => 120,
+        //     ]);
 
-            // 3. Build the Gemini client using its factory, passing in our custom HTTP client.
-            return \Gemini::factory()
-                ->withApiKey($apiKey)
-                ->withHttpClient($guzzleClient)
-                ->make();
-        });
+        //     // 3. Build the Gemini client using its factory, passing in our custom HTTP client.
+        //     return \Gemini::factory()
+        //         ->withApiKey($apiKey)
+        //         ->withHttpClient($guzzleClient)
+        //         ->make();
+        // });
     }
 
     /**

@@ -34,6 +34,10 @@ Route::get('/', function () {
     ]);
 })->middleware('guest')->name('login');
 
+Route::get('/phpinfo', function () {
+    phpinfo();
+});
+
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
@@ -121,3 +125,60 @@ Route::get('/dev-login/{role}', function ($role) {
 })->name('dev.login');
 
 require __DIR__.'/auth.php';
+
+
+
+
+// ... your other routes ...
+
+// [+] ADD THIS ENTIRE ROUTE FOR DIAGNOSTICS
+Route::get('/ollama-direct-test', function () {
+
+    echo "<h1>Direct Ollama Connection Test</h1>";
+
+    $ollamaUrl = 'http://127.0.0.1:11434/api/generate';
+    // If the above URL fails, we will try this one next:
+    // $ollamaUrl = 'http://localhost:11434/api/generate';
+
+    $data = [
+        'model' => 'llama3',
+        'prompt' => 'Why is the sky blue?',
+        'stream' => false, // Important: ensure we get a single response
+    ];
+
+    $jsonData = json_encode($data);
+
+    // Initialize cURL session
+    $ch = curl_init();
+
+    // Set cURL options
+    curl_setopt($ch, CURLOPT_URL, $ollamaUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($jsonData)
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 300); // 5 minute timeout
+
+    echo "<p>Sending request to: " . $ollamaUrl . "</p>";
+    echo "<p>Request body: " . $jsonData . "</p><hr>";
+
+    // Execute the request
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
+
+    // Close cURL session
+    curl_close($ch);
+
+    // Display the results
+    echo "<h2>Results:</h2>";
+    echo "<p><strong>HTTP Status Code:</strong> " . $http_code . "</p>";
+    echo "<p><strong>cURL Error (if any):</strong> " . ($curl_error ?: 'None') . "</p>";
+    echo "<p><strong>Raw Response Body:</strong></p>";
+    echo "<pre>";
+    var_dump($response);
+    echo "</pre>";
+});

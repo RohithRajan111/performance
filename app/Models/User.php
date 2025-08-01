@@ -23,15 +23,19 @@ class User extends Authenticatable
      *
      * @var array<int, string>
      */
-    protected $fillable = [
+      protected $fillable = [
         'name',
         'email',
         'password',
+        'designation',
+        'hire_date',
+        'birth_date',
+        'work_mode', 
         'parent_id',
         'leave_approver_id',
-        'leave_balance', // Add this when you create the migration
-        'designation',
+        'team_id',
         'image',
+        'leave_balance',
     ];
 
     /**

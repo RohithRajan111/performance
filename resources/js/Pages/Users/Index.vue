@@ -6,7 +6,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import { debounce } from 'lodash';
 
-// FIX #1: Tell Inertia to use the layout. This prevents the "Maximum call stack size exceeded" error.
+// Tell Inertia to use the layout.
 defineOptions({ layout: AuthenticatedLayout });
 
 // =========== PROPS ===========
@@ -17,6 +17,7 @@ const props = defineProps({
     potential_managers: Object,
     theAdmin: Object,
     filters: Object,
+    workModes: Array, // <-- This receives the data from the backend
 });
 
 // =========== STATE MANAGEMENT ===========
@@ -24,7 +25,7 @@ const isModalVisible = ref(false);
 const modalMode = ref('create');
 const editingUser = ref(null);
 const search = ref(props.filters?.search || '');
-const imagePreview = ref(null); // FIX #3: Use a separate ref for the preview URL.
+const imagePreview = ref(null);
 
 // =========== FORM HANDLING ===========
 const form = useForm({
@@ -34,6 +35,7 @@ const form = useForm({
     password: '',
     password_confirmation: '',
     role: '',
+    work_mode: '',
     team_id: '',
     parent_id: '',
     image: null,
@@ -42,7 +44,6 @@ const form = useForm({
 
 // =========== DYNAMIC FORM LOGIC ===========
 watch(() => form.role, (newRole, oldRole) => {
-    // FIX #2: Check if props.theAdmin exists before trying to access its id.
     if (newRole === 'project-manager' && props.theAdmin) {
         form.parent_id = props.theAdmin.id;
     }
@@ -58,7 +59,7 @@ watch(() => form.role, (newRole, oldRole) => {
 // =========== MODAL CONTROLS ===========
 const openCreateModal = () => {
     form.reset();
-    imagePreview.value = null; // Reset preview
+    imagePreview.value = null;
     modalMode.value = 'create';
     editingUser.value = null;
     form._method = 'post';
@@ -74,9 +75,9 @@ const openEditModal = (user) => {
     form.name = user.name;
     form.email = user.email;
     form.role = user.roles[0]?.name || '';
+    form.work_mode = user.work_mode || '';
     form.team_id = user.team_id || '';
     form.parent_id = user.parent_id || '';
-    // FIX #3: Correctly set the preview for an existing user's image.
     imagePreview.value = user.image ? `/storage/${user.image}` : null;
 
     isModalVisible.value = true;
@@ -121,7 +122,6 @@ function handleImageUpload(e) {
     const file = e.target.files[0];
     if (file) {
         form.image = file;
-        // FIX #3: Update the separate preview ref.
         imagePreview.value = URL.createObjectURL(file);
     }
 }
@@ -130,7 +130,6 @@ function handleImageUpload(e) {
 <template>
     <Head title="Manage Users" />
 
-    <!-- The <AuthenticatedLayout> wrapper is removed to prevent the infinite loop -->
     <div class="p-4 sm:p-6 lg:p-8 font-sans">
         <div class="max-w-7xl mx-auto space-y-6">
 
@@ -154,13 +153,14 @@ function handleImageUpload(e) {
                             <tr>
                                 <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
                                 <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
+                                <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Work Mode</th>
                                 <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Joined On</th>
-                                <th scope="col" class="relative py-3.5 px-6"><span class="sr-only">Actions</span></th>
+                                <th scope="col" class="py-3.5 px-6 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"><span class="sr-only text-slate-500">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <tr v-if="!users.data.length">
-                                <td colspan="4" class="px-6 py-8 text-center text-slate-500">No users found.</td>
+                                <td colspan="5" class="px-6 py-8 text-center text-slate-500">No users found.</td>
                             </tr>
                             <tr v-for="user in users.data" :key="user.id" class="hover:bg-slate-50 transition-colors">
                                 <td class="whitespace-nowrap py-4 px-6 text-sm">
@@ -173,8 +173,8 @@ function handleImageUpload(e) {
                                     </div>
                                 </td>
                                 <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600 capitalize">{{ user.roles[0]?.name.replace('-', ' ') || 'N/A' }}</td>
+                                <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600">{{ user.work_mode || 'N/A' }}</td>
                                 <td class="whitespace-nowrap py-4 px-6 text-sm text-slate-600">{{ new Date(user.created_at).toLocaleDateString() }}</td>
-                                <!-- FIX #4: All actions now inside a single table cell for correct layout. -->
                                 <td class="whitespace-nowrap py-4 px-6 text-right text-sm font-medium">
                                     <div class="flex items-center justify-end space-x-4">
                                         <Link :href="route('performance.show', user.id)" class="text-green-600 hover:text-green-900">Performance</Link>
@@ -186,7 +186,6 @@ function handleImageUpload(e) {
                         </tbody>
                     </table>
                 </div>
-                 <!-- FIX #5: Corrected pagination logic that handles null URLs. -->
                 <div v-if="paginationLinks.length > 3" class="p-4 sm:px-6 border-t border-slate-200 flex items-center justify-between">
                     <div class="text-sm text-slate-600">Showing {{ users.from }} to {{ users.to }} of {{ users.total }} results</div>
                     <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm">
@@ -204,6 +203,7 @@ function handleImageUpload(e) {
             <div class="p-6">
                 <h2 class="text-lg font-bold text-slate-900">{{ modalMode === 'create' ? 'Create New User' : 'Edit User' }}</h2>
                 <form @submit.prevent="submit" class="mt-6 space-y-6">
+                    <!-- Name, Email, Image, Role -->
                     <div>
                         <label for="name" class="block text-sm font-medium text-slate-700">Name</label>
                         <input v-model="form.name" id="name" type="text" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
@@ -233,6 +233,20 @@ function handleImageUpload(e) {
                         </select>
                         <InputError class="mt-2" :message="form.errors.role" />
                     </div>
+
+                    <!-- DYNAMIC WORK MODE DROPDOWN -->
+                    <div>
+                        <label for="work_mode" class="block text-sm font-medium text-slate-700">Work Mode</label>
+                        <select v-model="form.work_mode" id="work_mode" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="">-- Not Set --</option>
+                            <option v-for="mode in workModes" :key="mode" :value="mode">
+                                {{ mode }}
+                            </option>
+                        </select>
+                        <InputError class="mt-2" :message="form.errors.work_mode" />
+                    </div>
+
+                    <!-- Reports To and Team -->
                     <div>
                         <div v-if="form.role === 'project-manager'">
                             <label class="block text-sm font-medium text-slate-700">Reports To</label>
@@ -264,6 +278,8 @@ function handleImageUpload(e) {
                         </select>
                         <InputError class="mt-2" :message="form.errors.team_id" />
                     </div>
+
+                    <!-- Password Fields -->
                     <div class="border-t border-slate-200 pt-6">
                          <h3 class="text-base font-semibold text-slate-800">{{ modalMode === 'create' ? 'Set Password' : 'Change Password (Optional)' }}</h3>
                         <div class="mt-4 space-y-6">
@@ -278,6 +294,8 @@ function handleImageUpload(e) {
                             </div>
                         </div>
                     </div>
+
+                    <!-- Form Actions -->
                     <div class="mt-6 flex justify-end gap-3">
                         <button type="button" @click="closeModal" class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50">Cancel</button>
                         <button type="submit" :disabled="form.processing" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50">
