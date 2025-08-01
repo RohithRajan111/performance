@@ -332,6 +332,44 @@ function closeRequestsModal() {
 const recentRequests = computed(() => {
   return (props.leaveRequests.data || []).slice(0, 5)
 })
+
+const isEditModalVisible = ref(false)
+const editingRequest = ref(null)
+const editingReason = ref('')
+const editProcessing = ref(false)
+
+function openEditModal(request) {
+  editingRequest.value = request
+  editingReason.value = request.reason
+  isEditModalVisible.value = true
+}
+function closeEditModal() {
+  isEditModalVisible.value = false
+  editingRequest.value = null
+  editingReason.value = ''
+  editProcessing.value = false
+}
+function submitEditReason() {
+  if (!editingRequest.value) return
+  editProcessing.value = true
+  router.patch(
+    route('leave.updateReason', { leave_application: editingRequest.value.id }),
+    { reason: editingReason.value },
+    {
+      preserveScroll: true,
+      onSuccess: () => {
+        editProcessing.value = false
+        closeEditModal()
+        router.reload()
+      },
+      onError: () => {
+        editProcessing.value = false
+      }
+    }
+  )
+}
+
+
 </script>
 
 <template>
@@ -575,9 +613,19 @@ const recentRequests = computed(() => {
                       </div>
                     </td>
                     <td class="py-3 px-3 text-right">
-                      <button v-if="request.status === 'pending'" @click="cancelLeave(request)" class="text-red-600 hover:text-red-900 font-semibold">Cancel</button>
-                      <span v-else class="text-gray-400">-</span>
-                    </td>
+  <button
+    v-if="request.status === 'pending'"
+    @click="openEditModal(request)"
+    class="text-blue-600 hover:underline font-semibold text-sm"
+  >Edit</button>
+  <button
+    v-if="request.status === 'pending'"
+    @click="cancelLeave(request)"
+    class="ml-2 text-red-600 hover:text-red-900 font-semibold text-sm"
+  >Cancel</button>
+  <span v-else class="text-gray-400">-</span>
+</td>
+
                   </tr>
                 </tbody>
               </table>
@@ -596,6 +644,36 @@ const recentRequests = computed(() => {
           </section>
         </div>
       </div>
+
+      <!-- Edit Reason Modal -->
+<div
+  v-if="isEditModalVisible"
+  @click.self="closeEditModal"
+  class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+>
+  <form
+    @submit.prevent="submitEditReason"
+    class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+  >
+    <h2 class="text-lg font-semibold mb-1">Edit Reason</h2>
+    <p class="text-sm text-gray-600 mb-2">Update the reason for your leave application:</p>
+    <textarea
+      v-model="editingReason"
+      rows="4"
+      required
+      class="w-full border rounded px-3 py-2"
+      :disabled="editProcessing"
+    ></textarea>
+    <div class="flex gap-2 justify-end pt-2">
+      <button type="button" @click="closeEditModal"
+        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+      <PrimaryButton type="submit" :disabled="editProcessing">
+        {{ editProcessing ? 'Saving...' : 'Save' }}
+      </PrimaryButton>
+    </div>
+  </form>
+</div>
+
 
       <!-- Leave Policy Modal -->
       <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">

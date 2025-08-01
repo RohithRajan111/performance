@@ -72,6 +72,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/leave/logs', [LeaveController::class, 'showLogs'])->name('leave.logs')->middleware(['can:manage employees']);
     Route::get('/leave/requests', [LeaveController::class, 'fullRequests'])->name('leave.fullRequests');
     Route::patch('/leave/{leave_application}', [LeaveApplicationController::class, 'update'])->name('leave.update')->middleware(['can:manage leave applications']);
+    Route::patch('/leave/{leave_application}/reason', [LeaveApplicationController::class, 'updateReason'])->name('leave.updateReason')->middleware(['can:apply for leave']);
     Route::post('/leave/{leave_application}/upload-document', [LeaveApplicationController::class, 'uploadDocument'])
         ->name('leave.uploadDocument')
         ->middleware('can:apply for leave');

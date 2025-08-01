@@ -50,8 +50,10 @@ public function fullRequests(Request $request)
 
     // Base query for user's leave requests (modify if admin can see all)
     $query = LeaveApplication::with('user:id,name')
-        ->where('user_id', $user->id)
-        ->orderBy('start_date', 'desc');
+    ->where('user_id', $user->id)
+    ->select(['id', 'user_id', 'start_date', 'end_date', 'reason', 'leave_type', 'status', 'created_at', 'rejection_reason'])
+    ->orderBy('start_date', 'desc');
+
 
     // Optional: add filters if coming from query string
     if ($request->filled('status')) {
@@ -68,6 +70,18 @@ public function fullRequests(Request $request)
         'filters' => $request->only(['status', 'leave_type']),
     ]);
 }
+// public function update(Request $request, LeaveApplication $leaveApplication)
+// {
+//     // ...other logic...
+//     if ($request->status === 'rejected') {
+//         $request->validate(['rejection_reason' => 'required|string|max:500']);
+//         $leaveApplication->reject_reason = $request->rejection_reason;
+//     }
+//     // ...other updates...
+//     $leaveApplication->status = $request->status;
+//     $leaveApplication->save();
+//     // ...
+// }
 
 
 }

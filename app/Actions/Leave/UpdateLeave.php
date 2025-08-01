@@ -15,7 +15,7 @@ class UpdateLeave
         private LeaveService $leaveService
     ) {}
 
-    public function handle(LeaveApplication $leaveApplication, string $status): void
+    public function handle(LeaveApplication $leaveApplication, string $status, ?string $rejectReason = null): void
 {
     $updateData = ['status' => $status];
 
@@ -25,6 +25,14 @@ class UpdateLeave
 
     if (Schema::hasColumn('leave_applications', 'approved_at')) {
         $updateData['approved_at'] = now();
+    }
+
+    // Save reject_reason if rejecting
+    if ($status === 'rejected') {
+        $updateData['rejection_reason'] = $rejectReason;
+    } else {
+        // Optionally clear reject_reason if status changes to something else
+        $updateData['rejection_reason'] = null;
     }
 
     $leaveApplication->update($updateData);

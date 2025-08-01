@@ -33,11 +33,26 @@ class LeaveApplicationController extends Controller
     }
 
     public function update(UpdateLeaveRequest $request, LeaveApplication $leave_application, UpdateLeave $updateLeaveStatus)
-    {
-        $updateLeaveStatus->handle($leave_application, $request->validated()['status']);
+{
+    $data = $request->validated();
 
-        return Redirect::back()->with('success', 'Application status updated.');
-    }
+    $status = $data['status'];  // string 'approved' or 'rejected'
+    $rejectionReason = $data['rejection_reason'] ?? null;  // string or null
+
+    $updateLeaveStatus->handle($leave_application, $status, $rejectionReason);
+
+    return Redirect::back()->with('success', 'Application status updated.');
+}
+
+    public function updateReason(Request $request, LeaveApplication $leave_application)
+{    
+    $validated = $request->validate([
+        'reason' => ['required', 'string', 'max:500'],
+    ]);
+    $leave_application->update(['reason' => $validated['reason']]);
+    return back()->with('success', 'Reason updated.');
+}
+
 
     public function calendar(Request $request)
     {

@@ -24,7 +24,6 @@ function formatDate(dateString) {
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-
 // Format leave days with halves (e.g., 1.5)
 function formatLeaveDays(days) {
   const num = Number(days)
@@ -101,6 +100,42 @@ function closeDetailsModal() {
 // Approve/Reject leave actions
 const updateStatus = (request, newStatus) => {
   router.patch(route('leave.update', { leave_application: request.id }), { status: newStatus }, { preserveScroll: true })
+}
+
+const isRejectModalOpen = ref(false)
+const rejectReason = ref('')
+const rejectProcessing = ref(false)
+const rejectingLeave = ref(null)
+
+function openRejectModal(request) {
+  rejectingLeave.value = request
+  rejectReason.value = ''
+  isRejectModalOpen.value = true
+}
+function closeRejectModal() {
+  isRejectModalOpen.value = false
+  rejectingLeave.value = null
+  rejectReason.value = ''
+  rejectProcessing.value = false
+}
+
+function submitRejection() {
+  if (!rejectingLeave.value) return
+  rejectProcessing.value = true
+  router.patch(
+    route('leave.update', { leave_application: rejectingLeave.value.id }),
+    { status: 'rejected', rejection_reason: rejectReason.value },
+    {
+      preserveScroll: true,
+      onSuccess: () => {
+        rejectProcessing.value = false
+        closeRejectModal()
+        closeDetailsModal()
+        router.reload()
+      },
+      onError: () => { rejectProcessing.value = false }
+    }
+  )
 }
 </script>
 
@@ -187,88 +222,84 @@ const updateStatus = (request, newStatus) => {
       </div>
 
       <!-- Leave Details Modal -->
-<div
-  v-if="isDetailsModalOpen"
-  @click.self="closeDetailsModal"
-  class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
->
-  <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col">
-    <div class="flex justify-between items-center mb-3 pb-2 border-b">
-      <h2 class="text-lg font-bold">Leave Application Details</h2>
-      <button class="text-2xl text-gray-500 hover:text-gray-700" @click="closeDetailsModal">&times;</button>
-    </div>
-    <div v-if="selectedLeave" class="space-y-3">
-      <div><span class="font-medium">Employee:</span> {{ selectedLeave.user?.name }}</div>
-      <div><span class="font-medium">Leave Type:</span> {{ selectedLeave.leave_type }}</div>
-      <div>
-        <span class="font-medium">Dates:</span>
-        {{ formatDate(selectedLeave.start_date) }}
-        <span v-if="selectedLeave.start_date !== selectedLeave.end_date"> - {{ formatDate(selectedLeave.end_date) }}</span>
-      </div>
-      <div>
-        <span class="font-medium">Duration:</span>
-        {{ formatLeaveDays(selectedLeave.leave_days) }} day<span v-if="selectedLeave.leave_days !== 1">s</span>
-      </div>
-      <div>
-        <span class="font-medium">Sessions:</span>
-        <template v-if="selectedLeave.day_type === 'half'">
-          {{ selectedLeave.start_half_session }} session
-          <span v-if="selectedLeave.start_date !== selectedLeave.end_date">
-            to {{ selectedLeave.end_half_session }} session
-          </span>
-        </template>
-        <template v-else>Full Day</template>
-      </div>
-      <div>
-        <span class="font-medium">Reason:</span>
-        <p class="whitespace-pre-line mt-1 text-gray-700">{{ selectedLeave.reason }}</p>
-      </div>
-      <div><span class="font-medium">Status:</span> {{ selectedLeave.status }}</div>
-      <div>
-        <span class="font-medium">Supporting Document:</span>
-        <span v-if="selectedLeave.supporting_document_path">
-          <a
-            :href="`/storage/${selectedLeave.supporting_document_path}`"
-            target="_blank"
-            class="text-indigo-600 underline"
-          >
-            View Document
-          </a>
-        </span>
-        <span v-else class="text-gray-400 ml-2">None</span>
-      </div>
+      <div
+        v-if="isDetailsModalOpen"
+        @click.self="closeDetailsModal"
+        class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+      >
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col">
+          <div class="flex justify-between items-center mb-3 pb-2 border-b">
+            <h2 class="text-lg font-bold">Leave Application Details</h2>
+            <button class="text-2xl text-gray-500 hover:text-gray-700" @click="closeDetailsModal">&times;</button>
+          </div>
+          <div v-if="selectedLeave" class="space-y-3">
+            <div><span class="font-medium">Employee:</span> {{ selectedLeave.user?.name }}</div>
+            <div><span class="font-medium">Leave Type:</span> {{ selectedLeave.leave_type }}</div>
+            <div>
+              <span class="font-medium">Dates:</span>
+              {{ formatDate(selectedLeave.start_date) }}
+              <span v-if="selectedLeave.start_date !== selectedLeave.end_date"> - {{ formatDate(selectedLeave.end_date) }}</span>
+            </div>
+            <div>
+              <span class="font-medium">Duration:</span>
+              {{ formatLeaveDays(selectedLeave.leave_days) }} day<span v-if="selectedLeave.leave_days !== 1">s</span>
+            </div>
+            <div>
+              <span class="font-medium">Sessions:</span>
+              <template v-if="selectedLeave.day_type === 'half'">
+                {{ selectedLeave.start_half_session }} session
+                <span v-if="selectedLeave.start_date !== selectedLeave.end_date">
+                  to {{ selectedLeave.end_half_session }} session
+                </span>
+              </template>
+              <template v-else>Full Day</template>
+            </div>
+            <div>
+              <span class="font-medium">Reason:</span>
+              <p class="whitespace-pre-line mt-1 text-gray-700">{{ selectedLeave.reason }}</p>
+            </div>
+            <div><span class="font-medium">Status:</span> {{ selectedLeave.status }}</div>
+            <div v-if="selectedLeave.status === 'rejected' && selectedLeave.rejection_reason" class="mt-2">
+              <span class="font-medium text-red-700">Reason for Rejection:</span>
+              <p class="whitespace-pre-line mt-1 text-sm text-red-600">{{ selectedLeave.rejection_reason }}</p>
+            </div>
+            <div>
+              <span class="font-medium">Supporting Document:</span>
+              <span v-if="selectedLeave.supporting_document_path">
+                <a
+                  :href="`/storage/${selectedLeave.supporting_document_path}`"
+                  target="_blank"
+                  class="text-indigo-600 underline"
+                >
+                  View Document
+                </a>
+              </span>
+              <span v-else class="text-gray-400 ml-2">None</span>
+            </div>
 
-      <!-- Sick leave upload/replace document button -->
-      <!-- <div v-if="selectedLeave.leave_type === 'sick' && ['pending', 'approved'].includes(selectedLeave.status)">
-        <PrimaryButton @click="() => { openUploadModal(selectedLeave.id); closeDetailsModal(); }" class="mt-4">
-          {{ selectedLeave.supporting_document_path ? 'Replace Document' : 'Upload Document' }}
-        </PrimaryButton>
-      </div> -->
-
-      <!-- Approve/Reject buttons (only if pending) -->
-      <div v-if="selectedLeave.status === 'pending'" class="mt-4 flex gap-3">
-        <PrimaryButton
-          @click="() => { updateStatus(selectedLeave, 'approved'); closeDetailsModal(); }"
-          class="bg-green-600 hover:bg-green-700"
-        >
-          Approve
-        </PrimaryButton>
-        <PrimaryButton
-          @click="() => { updateStatus(selectedLeave, 'rejected'); closeDetailsModal(); }"
-          class="bg-red-600 hover:bg-red-700"
-        >
-          Reject
-        </PrimaryButton>
+            <!-- Approve/Reject buttons (only if pending) -->
+            <div v-if="selectedLeave.status === 'pending'" class="mt-4 flex gap-3">
+              <PrimaryButton
+                @click="() => { updateStatus(selectedLeave, 'approved'); closeDetailsModal(); }"
+                class="bg-green-600 hover:bg-green-700"
+              >
+                Approve
+              </PrimaryButton>
+              <PrimaryButton
+                @click="() => { openRejectModal(selectedLeave) }"
+                class="bg-red-600 hover:bg-red-700"
+              >
+                Reject
+              </PrimaryButton>
+            </div>
+          </div>
+          <div class="mt-6 flex justify-end">
+            <button @click="closeDetailsModal" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 font-medium">
+              Close
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="mt-6 flex justify-end">
-      <button @click="closeDetailsModal" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 font-medium">
-        Close
-      </button>
-    </div>
-  </div>
-</div>
-
 
       <!-- Upload Supporting Document Modal -->
       <div
@@ -301,6 +332,36 @@ const updateStatus = (request, newStatus) => {
             </button>
             <PrimaryButton type="submit" :disabled="uploadProcessing">
               {{ uploadProcessing ? 'Uploading...' : 'Upload' }}
+            </PrimaryButton>
+          </div>
+        </form>
+      </div>
+
+      <!-- Reject Reason Modal -->
+      <div
+        v-if="isRejectModalOpen"
+        @click.self="closeRejectModal"
+        class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+      >
+        <form
+          @submit.prevent="submitRejection"
+          class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+        >
+          <h2 class="text-lg font-semibold mb-1">Reason for Rejection</h2>
+          <textarea
+            v-model="rejectReason"
+            required
+            rows="3"
+            maxlength="500"
+            class="w-full border rounded px-3 py-2"
+            :disabled="rejectProcessing"
+            placeholder="State the reason for rejection..."
+          ></textarea>
+          <div class="flex gap-2 justify-end pt-2">
+            <button type="button" @click="closeRejectModal"
+              class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+            <PrimaryButton type="submit" :disabled="rejectProcessing || !rejectReason">
+              {{ rejectProcessing ? 'Rejecting...' : 'Reject' }}
             </PrimaryButton>
           </div>
         </form>
