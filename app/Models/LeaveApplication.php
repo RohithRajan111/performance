@@ -42,7 +42,7 @@ class LeaveApplication extends Model
         'status' => 'pending',
     ];
 
-        public function scopeApproved($query)
+    public function scopeApproved($query)
     {
         return $query->where('status', 'approved');
     }
@@ -61,6 +61,7 @@ class LeaveApplication extends Model
     {
         return $query->orderByRaw("FIELD(status, 'pending', 'approved', 'rejected')");
     }
+
     public function user()
     {
         return $this->belongsTo(User::class);

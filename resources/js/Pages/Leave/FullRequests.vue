@@ -10,6 +10,7 @@ import { watch } from 'vue'
 const props = defineProps({
   leaveRequests: Object,
   filters: Object,
+
 })
 
 const statusOptions = [
@@ -113,6 +114,14 @@ watch(isReasonModalVisible, (visible) => {
   }
 })
 
+function formatLeaveDays(days) {
+  const num = Number(days)
+  if (isNaN(num)) return '0'
+  if (num % 1 === 0.5) return `${Math.floor(num)}.5`
+  return num % 1 === 0 ? num.toString() : num.toFixed(1)
+}
+
+
 </script>
 
 <template>
@@ -138,6 +147,7 @@ watch(isReasonModalVisible, (visible) => {
             <tr>
               <th class="p-3">Start Date</th>
               <th class="p-3">End Date</th>
+              <th class="p-3">Duration</th>
               <th class="p-3">Type</th>
               <th class="p-3">Reason</th>
               <th class="p-3">Status</th>
@@ -147,11 +157,12 @@ watch(isReasonModalVisible, (visible) => {
           </thead>
           <tbody>
             <tr v-if="leaveRequests.data.length === 0">
-              <td colspan="6" class="p-4 text-center text-gray-500">No leave requests found.</td>
+              <td colspan="8" class="p-4 text-center text-gray-500">No leave requests found.</td>
             </tr>
             <tr v-for="req in leaveRequests.data" :key="req.id" class="border-t hover:bg-gray-50">
               <td class="p-3">{{ new Date(req.start_date).toLocaleDateString() }}</td>
               <td class="p-3">{{ req.end_date ? new Date(req.end_date).toLocaleDateString() : '-' }}</td>
+<td class="p-3">{{ formatLeaveDays(req.leave_days) }} day<span v-if="req.leave_days !== 1">s</span></td>
               <td class="p-3 capitalize">{{ req.leave_type }}</td>
               <td class="p-3 truncate max-w-[300px]" :title="req.reason">{{ req.reason }}</td>
               <td class="p-3 flex items-center gap-2">

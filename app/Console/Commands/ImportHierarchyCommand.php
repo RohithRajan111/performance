@@ -2,13 +2,12 @@
 
 namespace App\Console\Commands;
 
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
-use Carbon\Carbon;
-use Exception;
 
 class ImportHierarchyCommand extends Command
 {
@@ -33,14 +32,15 @@ class ImportHierarchyCommand extends Command
     {
         $filePath = storage_path('app/company_data.xlsx');
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             $this->error("File not found at: {$filePath}");
+
             return 1;
         }
 
         $this->info('Starting user import from Excel...');
 
-        $reader = new Xlsx();
+        $reader = new Xlsx;
         $spreadsheet = $reader->load($filePath);
         $excelData = $spreadsheet->getActiveSheet()->toArray();
         array_shift($excelData); // Remove header row
@@ -55,17 +55,20 @@ class ImportHierarchyCommand extends Command
             $this->info('--- Pass 1: Creating user records ---');
             foreach ($excelData as $rowNumber => $row) {
                 $name = $row[0] ?? null;
-                if (empty($name)) continue;
+                if (empty($name)) {
+                    continue;
+                }
 
-                $email = strtolower(str_replace(' ', '.', $name)) . '@company.com';
+                $email = strtolower(str_replace(' ', '.', $name)).'@company.com';
                 if (DB::table('users')->where('email', $email)->exists()) {
                     $this->warn("User '{$name}' already exists. Skipping insertion.");
+
                     continue;
                 }
 
                 // --- ROBUST DATE PARSING LOGIC ---
                 // This function will try multiple formats
-                $parseDate = function($dateString) {
+                $parseDate = function ($dateString) {
                     if (empty($dateString)) {
                         return null;
                     }
@@ -87,10 +90,10 @@ class ImportHierarchyCommand extends Command
                 $birth_date = $parseDate($row[3] ?? null);
 
                 if (empty($hire_date)) {
-                    $this->warn("Could not parse hire date for '{$name}' on row " . ($rowNumber + 2) . ". Setting to NULL.");
+                    $this->warn("Could not parse hire date for '{$name}' on row ".($rowNumber + 2).'. Setting to NULL.');
                 }
-                 if (empty($birth_date)) {
-                    $this->warn("Could not parse birth date for '{$name}' on row " . ($rowNumber + 2) . ". Setting to NULL.");
+                if (empty($birth_date)) {
+                    $this->warn("Could not parse birth date for '{$name}' on row ".($rowNumber + 2).'. Setting to NULL.');
                 }
                 // --- END OF ROBUST DATE PARSING ---
 
@@ -117,7 +120,9 @@ class ImportHierarchyCommand extends Command
             foreach ($excelData as $row) {
                 $employeeName = $row[0] ?? null;
                 $managerName = $row[4] ?? null;
-                if (empty($employeeName) || empty($managerName)) continue;
+                if (empty($employeeName) || empty($managerName)) {
+                    continue;
+                }
 
                 $employeeUser = $allUsers->firstWhere('name', $employeeName);
                 $managerUser = $allUsers->firstWhere('name', $managerName);
@@ -133,13 +138,15 @@ class ImportHierarchyCommand extends Command
             DB::commit();
             $this->info('------------------------------------');
             $this->info('User import completed successfully! Data has been saved.');
+
             return 0;
 
         } catch (Exception $e) {
             DB::rollBack();
             $this->error('A critical error occurred. Transaction rolled back. Nothing was saved.');
-            $this->error('Error Message: ' . $e->getMessage());
-            $this->error('File: ' . $e->getFile() . ' on line ' . $e->getLine());
+            $this->error('Error Message: '.$e->getMessage());
+            $this->error('File: '.$e->getFile().' on line '.$e->getLine());
+
             return 1;
         }
     }

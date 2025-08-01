@@ -8,10 +8,9 @@ use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
@@ -24,8 +23,8 @@ class DashboardController extends Controller
         $absentTodayUsers = User::whereHas('leaveApplications', function ($query) {
             $today = now()->toDateString();
             $query->where('status', 'approved')
-                  ->where('start_date', '<=', $today)
-                  ->where('end_date', '>=', $today);
+                ->where('start_date', '<=', $today)
+                ->where('end_date', '>=', $today);
         })->get();
 
         $attendanceData = [
@@ -51,10 +50,10 @@ class DashboardController extends Controller
         $leaveEvents = LeaveApplication::where('user_id', $user->id)
             ->where('status', 'approved')
             ->get()
-            ->map(function($leave) {
+            ->map(function ($leave) {
                 return [
-                    'id' => 'leave_' . $leave->id,
-                    'title' => ucfirst($leave->leave_type) . ' Leave',
+                    'id' => 'leave_'.$leave->id,
+                    'title' => ucfirst($leave->leave_type).' Leave',
                     'start' => $leave->start_date, // Just date, no time
                     'end' => $leave->start_date === $leave->end_date
                         ? null // Single day event
@@ -68,15 +67,15 @@ class DashboardController extends Controller
                         'leave_type' => $leave->leave_type,
                         'status' => $leave->status,
                         'day_type' => $leave->day_type ?? 'full_day',
-                    ]
+                    ],
                 ];
             });
 
         $noteEvents = CalendarNote::where('user_id', $user->id)
             ->get()
-            ->map(function($note) {
+            ->map(function ($note) {
                 return [
-                    'id' => 'note_' . $note->id,
+                    'id' => 'note_'.$note->id,
                     'title' => $note->note,
                     'start' => $note->date,
                     'allDay' => true, // Notes are also all-day events
@@ -86,7 +85,7 @@ class DashboardController extends Controller
                     'extendedProps' => [
                         'type' => 'note',
                         'note_id' => $note->id,
-                    ]
+                    ],
                 ];
             });
 

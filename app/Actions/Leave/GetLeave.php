@@ -51,38 +51,37 @@ class GetLeave
      * and return data for frontend consumption.
      */
     public function handle(): array
-{
-    $user = Auth::user();
-    $remainingLeaveBalance = $user->getRemainingLeaveBalance();
+    {
+        $user = Auth::user();
+        $remainingLeaveBalance = $user->getRemainingLeaveBalance();
 
-    // Always fetch only logged-in user's leave requests, regardless of role
-    $requests = LeaveApplication::with(['user:id,name'])
-        ->where('user_id', $user->id)
-        ->orderByRaw("CASE status
+        // Always fetch only logged-in user's leave requests, regardless of role
+        $requests = LeaveApplication::with(['user:id,name'])
+            ->where('user_id', $user->id)
+            ->orderByRaw("CASE status
             WHEN 'pending' THEN 1
             WHEN 'approved' THEN 2
             WHEN 'rejected' THEN 3
             ELSE 4
         END")
-        ->latest()
-        ->paginate(15);
+            ->latest()
+            ->paginate(15);
 
-    $highlighted = $requests->getCollection()->filter(fn ($request) => in_array($request->status, ['pending', 'approved']))
-        ->map(fn ($request) => [
-            'start' => $request->start_date->toDateString(),
-            'end' => $request->end_date ? $request->end_date->toDateString() : null,
-            'title' => ucfirst($request->leave_type) . ' Leave',
-            'class' => $request->status,
-            'color_category' => $this->getLeaveColorCategory($request),
-            'user_id' => $request->user_id,
-        ])->values()->all();
+        $highlighted = $requests->getCollection()->filter(fn ($request) => in_array($request->status, ['pending', 'approved']))
+            ->map(fn ($request) => [
+                'start' => $request->start_date->toDateString(),
+                'end' => $request->end_date ? $request->end_date->toDateString() : null,
+                'title' => ucfirst($request->leave_type).' Leave',
+                'class' => $request->status,
+                'color_category' => $this->getLeaveColorCategory($request),
+                'user_id' => $request->user_id,
+            ])->values()->all();
 
-    return [
-        'leaveRequests' => $requests,
-        'canManage' => false, // since you do NOT want manage all requests here
-        'highlightedDates' => $highlighted,
-        'remainingLeaveBalance' => $remainingLeaveBalance,
-    ];
-}
-
+        return [
+            'leaveRequests' => $requests,
+            'canManage' => false, // since you do NOT want manage all requests here
+            'highlightedDates' => $highlighted,
+            'remainingLeaveBalance' => $remainingLeaveBalance,
+        ];
+    }
 }

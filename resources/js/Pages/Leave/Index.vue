@@ -370,6 +370,7 @@ function submitEditReason() {
 }
 
 
+
 </script>
 
 <template>
@@ -566,6 +567,7 @@ function submitEditReason() {
                   <tr class="text-left text-gray-500 font-medium">
                     <th class="py-2 px-3">Date</th>
                     <th class="py-2 px-3">Type</th>
+                    <th class="py-2 px-3">Duration</th>
                     <th class="py-2 px-3">Reason</th>
                     <th class="py-2 px-3">Requested</th>
                     <th class="py-2 px-3 text-center">Document</th>
@@ -584,6 +586,10 @@ function submitEditReason() {
                         {{ request.leave_type }}
                       </span>
                     </td>
+                    <td class="py-3 px-3 text-center">
+  {{ formatLeaveDays(request.leave_days) }} day<span v-if="request.leave_days !== 1">s</span>
+</td>
+
                     <td class="py-3 px-3 max-w-[200px] truncate">{{ request.reason }}</td>
                     <td class="py-3 px-3">
                       <p>

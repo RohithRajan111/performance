@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Team;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class LeaveCalendarController extends Controller
 {
@@ -31,19 +31,19 @@ class LeaveCalendarController extends Controller
                         ->overlapsWith($startDate, $endDate)
                         ->select('id', 'user_id', 'start_date', 'end_date', 'leave_type', 'day_type', 'leave_days');
                 },
-                'teams:id,name'
+                'teams:id,name',
             ])
             ->select('id', 'name')
             ->orderBy('name');
 
         // Apply employee name filter
-        if (!empty($employee_name)) {
+        if (! empty($employee_name)) {
             $usersQuery->where('name', 'like', "%{$employee_name}%");
         }
 
         // Apply team filter
-        if (!empty($team_id)) {
-            $usersQuery->whereHas('teams', function($teamQuery) use ($team_id) {
+        if (! empty($team_id)) {
+            $usersQuery->whereHas('teams', function ($teamQuery) use ($team_id) {
                 $teamQuery->where('teams.id', $team_id);
             });
         }

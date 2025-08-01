@@ -15,7 +15,7 @@ class UserHierarchyController extends Controller
         $currentUser = Auth::user();
 
         // --- 1. Determine the scope of users to show ---
-        $usersToShow = new Collection();
+        $usersToShow = new Collection;
 
         if ($currentUser->hasRole(['admin', 'hr'])) {
             // Admins and HR still see the full company hierarchy.
@@ -34,15 +34,15 @@ class UserHierarchyController extends Controller
             // 2. Get Peer IDs (others who report to the same manager)
             if ($currentUser->parent_id) {
                 $peerIds = User::where('parent_id', $currentUser->parent_id)
-                                ->pluck('id') // Pluck just the IDs
-                                ->all();
+                    ->pluck('id') // Pluck just the IDs
+                    ->all();
                 $userIdsToShow = array_merge($userIdsToShow, $peerIds);
             }
 
             // 3. Get Direct Report IDs (people who report to the current user)
             $reportIds = User::where('parent_id', $currentUser->id)
-                               ->pluck('id')
-                               ->all();
+                ->pluck('id')
+                ->all();
             $userIdsToShow = array_merge($userIdsToShow, $reportIds);
 
             // 4. Remove duplicates and get the final user models.
@@ -84,15 +84,15 @@ class UserHierarchyController extends Controller
             // Check for a real image, otherwise use a placeholder
             $imageUrl = $user->image
                 ? Storage::url($user->image)
-                : 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=random&color=fff';
+                : 'https://ui-avatars.com/api/?name='.urlencode($user->name).'&background=random&color=fff';
 
             return [
-                'id'    => $user->id,
-                'pid'   => $user->parent_id,
-                'name'  => $user->name,
+                'id' => $user->id,
+                'pid' => $user->parent_id,
+                'name' => $user->name,
                 'title' => $title,
                 'image' => $imageUrl,
-                'tags'  => $tags,
+                'tags' => $tags,
             ];
         });
     }

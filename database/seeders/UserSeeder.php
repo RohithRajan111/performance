@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
-use App\Models\Project;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 
@@ -40,7 +40,7 @@ class UserSeeder extends Seeder
         // 5. Employees
         $employeeUser1 = User::factory()->create(['name' => 'Employee User', 'email' => 'employee@example.com', 'designation' => 'Software Engineer', 'parent_id' => $leadUser->id]);
         $employeeUser1->assignRole($employeeRole);
-        
+
         $employeeUser2 = User::factory()->create(['name' => 'Jane Doe', 'email' => 'jane@example.com', 'designation' => 'Frontend Developer', 'parent_id' => $leadUser->id]);
         $employeeUser2->assignRole($employeeRole);
 

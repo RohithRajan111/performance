@@ -10,34 +10,35 @@ use Illuminate\Support\Facades\Cache;
 class LeaveService
 {
     private const CACHE_TTL = 3600; // 1 hour
-    
+
     /**
      * Get cached leave balance for a user
      */
-    public function getUserLeaveBalance(User $user, int $year = null): float
+    public function getUserLeaveBalance(User $user, ?int $year = null): float
     {
         $year = $year ?? Carbon::now()->year;
         $cacheKey = "leave_balance_{$user->id}_{$year}";
-        
+
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user, $year) {
             $usedDays = LeaveApplication::forUser($user->id)
                 ->approved()
                 ->whereYear('start_date', $year)
                 ->sum('leave_days');
-                
+
             $totalBalance = $user->leave_balance ?? 20;
+
             return max(0, $totalBalance - $usedDays);
         });
     }
-    
+
     /**
      * Get cached leave statistics for a user
      */
-    public function getUserLeaveStatistics(User $user, int $year = null): array
+    public function getUserLeaveStatistics(User $user, ?int $year = null): array
     {
         $year = $year ?? Carbon::now()->year;
         $cacheKey = "leave_stats_{$user->id}_{$year}";
-        
+
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user, $year) {
             $stats = LeaveApplication::forUser($user->id)
                 ->whereYear('start_date', $year)
@@ -67,7 +68,7 @@ class LeaveService
             ];
         });
     }
-    
+
     /**
      * Check if dates overlap with existing leave applications
      */
@@ -76,21 +77,21 @@ class LeaveService
         $query = LeaveApplication::forUser($user->id)
             ->where('status', '!=', 'rejected')
             ->overlapsWith($startDate, $endDate);
-            
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         return $query->exists();
     }
-    
+
     /**
      * Get leave applications for calendar view with optimized queries
      */
     public function getLeaveApplicationsForCalendar(Carbon $startDate, Carbon $endDate, array $filters = []): array
     {
-        $cacheKey = "calendar_leaves_{$startDate->format('Y-m-d')}_{$endDate->format('Y-m-d')}_" . md5(serialize($filters));
-        
+        $cacheKey = "calendar_leaves_{$startDate->format('Y-m-d')}_{$endDate->format('Y-m-d')}_".md5(serialize($filters));
+
         return Cache::remember($cacheKey, self::CACHE_TTL / 4, function () use ($startDate, $endDate, $filters) {
             $usersQuery = User::query()
                 ->with([
@@ -99,18 +100,18 @@ class LeaveService
                             ->overlapsWith($startDate, $endDate)
                             ->select('id', 'user_id', 'start_date', 'end_date', 'leave_type', 'day_type', 'leave_days');
                     },
-                    'teams:id,name'
+                    'teams:id,name',
                 ])
                 ->select('id', 'name')
                 ->orderBy('name');
 
             // Apply filters
-            if (!empty($filters['employee_name'])) {
+            if (! empty($filters['employee_name'])) {
                 $usersQuery->where('name', 'like', "%{$filters['employee_name']}%");
             }
 
-            if (!empty($filters['team_id'])) {
-                $usersQuery->whereHas('teams', function($teamQuery) use ($filters) {
+            if (! empty($filters['team_id'])) {
+                $usersQuery->whereHas('teams', function ($teamQuery) use ($filters) {
                     $teamQuery->where('teams.id', $filters['team_id']);
                 });
             }
@@ -118,20 +119,20 @@ class LeaveService
             return $usersQuery->get()->toArray();
         });
     }
-    
+
     /**
      * Clear cache for a user's leave data
      */
-    public function clearUserLeaveCache(User $user, int $year = null): void
+    public function clearUserLeaveCache(User $user, ?int $year = null): void
     {
         $year = $year ?? Carbon::now()->year;
         Cache::forget("leave_balance_{$user->id}_{$year}");
         Cache::forget("leave_stats_{$user->id}_{$year}");
-        
+
         // Clear calendar cache (simplified - in production you might want more targeted clearing)
         Cache::flush(); // This is aggressive but ensures consistency
     }
-    
+
     /**
      * Get leave type colors for display
      */
@@ -146,7 +147,7 @@ class LeaveService
             'paternity' => '#3F51B5',
         ];
     }
-    
+
     /**
      * Calculate leave days for a date range considering weekends and half days
      */
@@ -158,17 +159,18 @@ class LeaveService
             'endDate' => $endDate->toDateString(),
             'dayType' => $dayType,
             'start_half_session' => $data['start_half_session'] ?? 'not set',
-            'end_half_session' => $data['end_half_session'] ?? 'not set'
+            'end_half_session' => $data['end_half_session'] ?? 'not set',
         ]);
 
         if ($dayType === 'half') {
             if ($startDate->isSameDay($endDate)) {
                 // Single day half-day leave is always 0.5 days
                 \Log::info('Calculated half-day single day', ['result' => 0.5]);
+
                 return 0.5;
             } else {
                 // Multi-day leave with half-day sessions
-                $totalDays = $startDate->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $endDate) + 1;
+                $totalDays = $startDate->diffInDaysFiltered(fn ($date) => ! $date->isWeekend(), $endDate) + 1;
                 $deduction = 0;
 
                 // If leave starts in the afternoon, the morning was worked (deduct 0.5)
@@ -179,20 +181,22 @@ class LeaveService
                 if (($data['end_half_session'] ?? null) === 'morning') {
                     $deduction += 0.5;
                 }
-                
+
                 $result = max(0.5, $totalDays - $deduction);
                 \Log::info('Calculated multi-day half-day', [
                     'totalDays' => $totalDays,
                     'deduction' => $deduction,
-                    'result' => $result
+                    'result' => $result,
                 ]);
+
                 return $result;
             }
         }
-        
+
         // Full day calculation: Count weekdays only
-        $result = $startDate->diffInDaysFiltered(fn ($date) => !$date->isWeekend(), $endDate) + 1;
+        $result = $startDate->diffInDaysFiltered(fn ($date) => ! $date->isWeekend(), $endDate) + 1;
         \Log::info('Calculated full day', ['result' => $result]);
+
         return $result;
     }
 }

@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
-use App\Models\User; // Make sure to import the User model
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory; // Make sure to import the User model
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\LeaveApplication>
@@ -18,11 +18,11 @@ class LeaveApplicationFactory extends Factory
     public function definition(): array
     {
         $startDate = $this->faker->dateTimeBetween('-1 month', '+1 month');
-        $endDate = (clone $startDate)->modify('+' . rand(0, 4) . ' days'); // Make it last 0-4 days
+        $endDate = (clone $startDate)->modify('+'.rand(0, 4).' days'); // Make it last 0-4 days
         $leaveDays = $startDate->diff($endDate)->days + 1;
 
         $dayType = $this->faker->randomElement(['full_day', 'half_day']);
-        
+
         if ($dayType === 'half_day') {
             $endDate = $startDate; // Half-day leave is always a single day
             $leaveDays = 0.5;
@@ -30,7 +30,7 @@ class LeaveApplicationFactory extends Factory
 
         return [
             // Associate with a random existing user
-            'user_id' => User::inRandomOrder()->first()->id, 
+            'user_id' => User::inRandomOrder()->first()->id,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'reason' => $this->faker->sentence(),
