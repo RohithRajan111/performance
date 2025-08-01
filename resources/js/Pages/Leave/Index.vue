@@ -368,9 +368,6 @@ function submitEditReason() {
     }
   )
 }
-
-
-
 </script>
 
 <template>
@@ -539,10 +536,11 @@ function submitEditReason() {
       </div>
 
       <!-- Your Requests Modal -->
+      <!-- CHANGE: Opacity increased for a darker overlay -->
       <div
         v-if="isRequestsModalVisible"
         @click.self="closeRequestsModal"
-        class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
       >
         <div class="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto shadow-lg">
           <header class="flex justify-between items-center p-4 border-b">
@@ -553,7 +551,7 @@ function submitEditReason() {
               aria-label="Close"
               title="Close"
             >
-              &times;
+              ×
             </button>
           </header>
 
@@ -587,9 +585,8 @@ function submitEditReason() {
                       </span>
                     </td>
                     <td class="py-3 px-3 text-center">
-  {{ formatLeaveDays(request.leave_days) }} day<span v-if="request.leave_days !== 1">s</span>
-</td>
-
+                      {{ formatLeaveDays(request.leave_days) }} day<span v-if="request.leave_days !== 1">s</span>
+                    </td>
                     <td class="py-3 px-3 max-w-[200px] truncate">{{ request.reason }}</td>
                     <td class="py-3 px-3">
                       <p>
@@ -619,19 +616,18 @@ function submitEditReason() {
                       </div>
                     </td>
                     <td class="py-3 px-3 text-right">
-  <button
-    v-if="request.status === 'pending'"
-    @click="openEditModal(request)"
-    class="text-blue-600 hover:underline font-semibold text-sm"
-  >Edit</button>
-  <button
-    v-if="request.status === 'pending'"
-    @click="cancelLeave(request)"
-    class="ml-2 text-red-600 hover:text-red-900 font-semibold text-sm"
-  >Cancel</button>
-  <span v-else class="text-gray-400">-</span>
-</td>
-
+                      <button
+                        v-if="request.status === 'pending'"
+                        @click="openEditModal(request)"
+                        class="text-blue-600 hover:underline font-semibold text-sm"
+                      >Edit</button>
+                      <button
+                        v-if="request.status === 'pending'"
+                        @click="cancelLeave(request)"
+                        class="ml-2 text-red-600 hover:text-red-900 font-semibold text-sm"
+                      >Cancel</button>
+                      <span v-else class="text-gray-400">-</span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -652,37 +648,39 @@ function submitEditReason() {
       </div>
 
       <!-- Edit Reason Modal -->
-<div
-  v-if="isEditModalVisible"
-  @click.self="closeEditModal"
-  class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
->
-  <form
-    @submit.prevent="submitEditReason"
-    class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
-  >
-    <h2 class="text-lg font-semibold mb-1">Edit Reason</h2>
-    <p class="text-sm text-gray-600 mb-2">Update the reason for your leave application:</p>
-    <textarea
-      v-model="editingReason"
-      rows="4"
-      required
-      class="w-full border rounded px-3 py-2"
-      :disabled="editProcessing"
-    ></textarea>
-    <div class="flex gap-2 justify-end pt-2">
-      <button type="button" @click="closeEditModal"
-        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
-      <PrimaryButton type="submit" :disabled="editProcessing">
-        {{ editProcessing ? 'Saving...' : 'Save' }}
-      </PrimaryButton>
-    </div>
-  </form>
-</div>
+      <!-- CHANGE: Opacity increased for a darker overlay -->
+      <div
+        v-if="isEditModalVisible"
+        @click.self="closeEditModal"
+        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+      >
+        <form
+          @submit.prevent="submitEditReason"
+          class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+        >
+          <h2 class="text-lg font-semibold mb-1">Edit Reason</h2>
+          <p class="text-sm text-gray-600 mb-2">Update the reason for your leave application:</p>
+          <textarea
+            v-model="editingReason"
+            rows="4"
+            required
+            class="w-full border rounded px-3 py-2"
+            :disabled="editProcessing"
+          ></textarea>
+          <div class="flex gap-2 justify-end pt-2">
+            <button type="button" @click="closeEditModal"
+              class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+            <PrimaryButton type="submit" :disabled="editProcessing">
+              {{ editProcessing ? 'Saving...' : 'Save' }}
+            </PrimaryButton>
+          </div>
+        </form>
+      </div>
 
 
       <!-- Leave Policy Modal -->
-      <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
+      <!-- CHANGE: Opacity increased for a darker overlay -->
+      <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
         <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95" :class="{ 'scale-100': isPolicyModalVisible }">
           <div class="p-5 border-b flex justify-between items-center">
             <h3 class="text-xl font-semibold text-gray-800">Company Leave Policy</h3>
@@ -704,7 +702,8 @@ function submitEditReason() {
       </div>
 
       <!-- Upload Supporting Document Modal -->
-      <div v-if="isUploadModalVisible" @click.self="closeUploadModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
+      <!-- CHANGE: Opacity increased for a darker overlay -->
+      <div v-if="isUploadModalVisible" @click.self="closeUploadModal" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
         <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
           <h3 class="text-lg font-semibold text-gray-800 mb-2">Upload Supporting Document</h3>
           <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
