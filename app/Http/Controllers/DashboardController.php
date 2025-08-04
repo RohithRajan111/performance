@@ -2,25 +2,47 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Announcement; // NEW: Import the Announcement model
+// All necessary imports from both files, deduplicated
+use App\Models\Announcement;
 use App\Models\CalendarNote;
 use App\Models\LeaveApplication;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\LeaveStatsService;
+use App\Services\TaskStatsService;
+use App\Services\TimeStatsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
+    // Using the Service-based architecture from the second controller for better organization
+    protected $taskStatsService;
+    protected $timeStatsService;
+    protected $leaveStatsService;
+
+    public function __construct(
+        TaskStatsService $taskStatsService,
+        TimeStatsService $timeStatsService,
+        LeaveStatsService $leaveStatsService
+    ) {
+        $this->taskStatsService = $taskStatsService;
+        $this->timeStatsService = $timeStatsService;
+        $this->leaveStatsService = $leaveStatsService;
+    }
+
+    /**
+     * Display the user's dashboard.
+     */
     public function index()
     {
         $user = Auth::user()->load('parent');
 
-        // --- ATTENDANCE & GREETING DATA ---
+        // --- ATTENDANCE & GREETING DATA (Common to both) ---
         $totalEmployees = User::count();
         $absentTodayUsers = User::whereHas('leaveApplications', function ($query) {
             $today = now()->toDateString();
@@ -47,17 +69,17 @@ class DashboardController extends Controller
             $greetingIcon = '🌙';
         }
 
-        // --- CALENDAR DATA ---
+        // --- CALENDAR DATA (Common to both) ---
         $leaveEvents = LeaveApplication::where('user_id', $user->id)
             ->where('status', 'approved')
             ->get()
-            ->map(function($leave) {
+            ->map(function ($leave) {
                 return [
-                    'id' => 'leave_' . $leave->id,
-                    'title' => ucfirst($leave->leave_type) . ' Leave',
+                    'id' => 'leave_'.$leave->id,
+                    'title' => ucfirst($leave->leave_type).' Leave',
                     'start' => $leave->start_date,
                     'end' => $leave->start_date === $leave->end_date
-                        ? null
+                        ? null // Single day event
                         : Carbon::parse($leave->end_date)->addDay()->toDateString(),
                     'allDay' => true,
                     'backgroundColor' => $this->getLeaveColor($leave->leave_type),
@@ -68,15 +90,15 @@ class DashboardController extends Controller
                         'leave_type' => $leave->leave_type,
                         'status' => $leave->status,
                         'day_type' => $leave->day_type ?? 'full_day',
-                    ]
+                    ],
                 ];
             });
 
         $noteEvents = CalendarNote::where('user_id', $user->id)
             ->get()
-            ->map(function($note) {
+            ->map(function ($note) {
                 return [
-                    'id' => 'note_' . $note->id,
+                    'id' => 'note_'.$note->id,
                     'title' => $note->note,
                     'start' => $note->date,
                     'allDay' => true,
@@ -86,42 +108,31 @@ class DashboardController extends Controller
                     'extendedProps' => [
                         'type' => 'note',
                         'note_id' => $note->id,
-                    ]
+                    ],
                 ];
             });
 
         $allCalendarEvents = (new Collection($leaveEvents))->merge($noteEvents);
 
-        // --- PROJECTS AND TASKS ---
+        // --- PROJECTS AND TASKS (Using the more concise logic) ---
         $projects = collect();
-        $myTasks = collect();
-
-        if ($user->hasRole(['admin', 'project-manager'])) {
+        if ($user->hasRole(['admin', 'project-manager', 'team-lead'])) {
             $projects = Project::where('status', '!=', 'completed')
-                ->latest()
-                ->get();
-        } elseif ($user->hasRole('team-lead')) {
-            $projects = Project::where('status', '!=', 'completed')
-                ->whereHas('members', function ($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                })
-                ->latest()
-                ->get();
+                ->whereHas('members', fn ($q) => $q->where('user_id', $user->id))
+                ->latest()->get();
         }
 
         $myTasks = Task::where('assigned_to_id', $user->id)
             ->with('project:id,name')
             ->where('status', '!=', 'completed')
-            ->orderBy('due_date', 'asc')
-            ->get();
+            ->orderBy('due_date', 'asc')->get();
 
-        // --- ANNOUNCEMENTS --- (NEW)
-        $announcements = Announcement::with('user:id,name,avatar_url') // Eager load the author's details
-            ->latest() // Order by the newest
-            ->take(5)  // Limit to 5 for the dashboard
+        // --- ANNOUNCEMENTS (Merged from the first controller) ---
+        $announcements = Announcement::with('user:id,name,avatar_url')
+            ->latest()
+            ->take(5)
             ->get()
             ->map(function ($announcement) {
-                // We format the data here to match what the Vue component expects
                 return [
                     'id' => $announcement->id,
                     'title' => $announcement->title,
@@ -131,7 +142,13 @@ class DashboardController extends Controller
                 ];
             });
 
-        // --- RENDER VIEW ---
+        // --- PERFORMANCE STATS (Using the Service classes) ---
+        $taskStats = $this->taskStatsService->getStatsForUser($user->id);
+        $timeStats = $this->timeStatsService->getStatsForUser($user->id);
+        $leaveStats = $this->leaveStatsService->getStatsForUser($user->id);
+
+
+        // --- RENDER VIEW (With all props combined) ---
         return Inertia::render('Dashboard', [
             'user' => $user->append('avatar_url'),
             'attendance' => $attendanceData,
@@ -143,12 +160,15 @@ class DashboardController extends Controller
             ],
             'projects' => $projects,
             'myTasks' => $myTasks,
-            'announcements' => $announcements, // NEW: Pass announcements to the view
+            'announcements' => $announcements, // <-- Merged
+            'taskStats' => $taskStats,         // <-- Merged
+            'timeStats' => $timeStats,         // <-- Merged
+            'leaveStats' => $leaveStats,         // <-- Merged
         ]);
     }
 
     /**
-     * Get color for different leave types
+     * Get color for different leave types.
      */
     private function getLeaveColor($leaveType)
     {
