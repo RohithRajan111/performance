@@ -36,7 +36,7 @@ class StoreLeaveRequest extends FormRequest
             }],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'reason' => ['required', 'string', 'min:10'],
-            'leave_type' => ['required', 'string', 'in:annual,sick,personal,emergency,maternity,paternity'],
+            'leave_type' => ['required', 'string', 'in:annual,sick,personal,emergency,maternity,paternity,wfh,compensatory'],
             // New session fields instead of old day_type and half_session
             'start_half_session' => ['nullable', 'in:morning,afternoon'],
             'end_half_session' => ['nullable', 'in:morning,afternoon'],

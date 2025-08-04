@@ -70,9 +70,14 @@ class StoreLeave
 
         // Validate leave balance
         // Validate leave balance except for emergency and sick leave
-        if (! in_array($data['leave_type'], ['emergency', 'sick']) && $leaveDays > $user->getRemainingLeaveBalance()) {
+        if (! in_array($data['leave_type'], ['emergency', 'sick', 'wfh', 'compensatory']) && $leaveDays > $user->getRemainingLeaveBalance()) {
             throw ValidationException::withMessages([
                 'leave_days' => ["You do not have enough leave balance. Remaining: {$user->getRemainingLeaveBalance()} days."],
+            ]);
+        }
+        if ($data['leave_type'] === 'compensatory' && $leaveDays > $user->comp_off_balance) {
+            throw ValidationException::withMessages([
+                'leave_days' => ['You do not have enough compensatory leave balance.'],
             ]);
         }
 
