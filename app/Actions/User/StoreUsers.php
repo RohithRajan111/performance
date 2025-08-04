@@ -17,8 +17,7 @@ class StoreUsers
             'password' => Hash::make($data['password']),
             'work_mode' => $data['work_mode'] ?? null,
             'parent_id' => $data['parent_id'] ?? null,
-            'leave_approver_id' => $data['parent_id'] ?? null,
-            // 'team_id' IS REMOVED FROM HERE
+            'designation' => $data['designation'] ?? null,
             'image' => null,
         ];
 

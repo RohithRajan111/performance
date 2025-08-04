@@ -2,47 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Announcement; // NEW: Import the Announcement model
 use App\Models\CalendarNote;
 use App\Models\LeaveApplication;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\LeaveStatsService;
-use App\Services\TaskStatsService;
-use App\Services\TimeStatsService;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
-    // [+] Inject the services via the constructor for clean dependency management
-    protected $taskStatsService;
-    protected $timeStatsService;
-    protected $leaveStatsService;
-
-    public function __construct(
-        TaskStatsService $taskStatsService,
-        TimeStatsService $timeStatsService,
-        LeaveStatsService $leaveStatsService
-    ) {
-        $this->taskStatsService = $taskStatsService;
-        $this->timeStatsService = $timeStatsService;
-        $this->leaveStatsService = $leaveStatsService;
-    }
-
     public function index()
     {
         $user = Auth::user()->load('parent');
 
-        // --- ATTENDANCE & GREETING DATA (Unchanged) ---
+        // --- ATTENDANCE & GREETING DATA ---
         $totalEmployees = User::count();
         $absentTodayUsers = User::whereHas('leaveApplications', function ($query) {
             $today = now()->toDateString();
             $query->where('status', 'approved')
-                ->where('start_date', '<=', $today)
-                ->where('end_date', '>=', $today);
+                  ->where('start_date', '<=', $today)
+                  ->where('end_date', '>=', $today);
         })->get();
 
         $attendanceData = [
@@ -63,19 +47,19 @@ class DashboardController extends Controller
             $greetingIcon = '🌙';
         }
 
-        // --- CALENDAR DATA (Unchanged) ---
+        // --- CALENDAR DATA ---
         $leaveEvents = LeaveApplication::where('user_id', $user->id)
             ->where('status', 'approved')
             ->get()
-            ->map(function ($leave) {
+            ->map(function($leave) {
                 return [
-                    'id' => 'leave_'.$leave->id,
-                    'title' => ucfirst($leave->leave_type).' Leave',
-                    'start' => $leave->start_date, // Just date, no time
+                    'id' => 'leave_' . $leave->id,
+                    'title' => ucfirst($leave->leave_type) . ' Leave',
+                    'start' => $leave->start_date,
                     'end' => $leave->start_date === $leave->end_date
-                        ? null // Single day event
+                        ? null
                         : Carbon::parse($leave->end_date)->addDay()->toDateString(),
-                    'allDay' => true, // This is crucial - makes it an all-day event
+                    'allDay' => true,
                     'backgroundColor' => $this->getLeaveColor($leave->leave_type),
                     'borderColor' => $this->getLeaveColor($leave->leave_type),
                     'textColor' => '#ffffff',
@@ -84,48 +68,70 @@ class DashboardController extends Controller
                         'leave_type' => $leave->leave_type,
                         'status' => $leave->status,
                         'day_type' => $leave->day_type ?? 'full_day',
-                    ],
+                    ]
                 ];
             });
 
         $noteEvents = CalendarNote::where('user_id', $user->id)
             ->get()
-            ->map(function ($note) {
+            ->map(function($note) {
                 return [
-                    'id' => 'note_'.$note->id,
+                    'id' => 'note_' . $note->id,
                     'title' => $note->note,
                     'start' => $note->date,
-                    'allDay' => true, // Notes are also all-day events
+                    'allDay' => true,
                     'backgroundColor' => '#FBBF24',
                     'borderColor' => '#F59E0B',
                     'textColor' => '#000000',
                     'extendedProps' => [
                         'type' => 'note',
                         'note_id' => $note->id,
-                    ],
+                    ]
                 ];
             });
 
         $allCalendarEvents = (new Collection($leaveEvents))->merge($noteEvents);
 
-        // --- PROJECTS AND TASKS (Unchanged) ---
+        // --- PROJECTS AND TASKS ---
         $projects = collect();
-        if ($user->hasRole(['admin', 'project-manager', 'team-lead'])) {
+        $myTasks = collect();
+
+        if ($user->hasRole(['admin', 'project-manager'])) {
             $projects = Project::where('status', '!=', 'completed')
-                ->whereHas('members', fn ($q) => $q->where('user_id', $user->id))
-                ->latest()->get();
+                ->latest()
+                ->get();
+        } elseif ($user->hasRole('team-lead')) {
+            $projects = Project::where('status', '!=', 'completed')
+                ->whereHas('members', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                })
+                ->latest()
+                ->get();
         }
 
         $myTasks = Task::where('assigned_to_id', $user->id)
             ->with('project:id,name')
             ->where('status', '!=', 'completed')
-            ->orderBy('due_date', 'asc')->get();
+            ->orderBy('due_date', 'asc')
+            ->get();
 
-        // --- [+] NEW --- Fetch performance stats for the logged-in user
-        $taskStats = $this->taskStatsService->getStatsForUser($user->id);
-        $timeStats = $this->timeStatsService->getStatsForUser($user->id);
-        $leaveStats = $this->leaveStatsService->getStatsForUser($user->id);
+        // --- ANNOUNCEMENTS --- (NEW)
+        $announcements = Announcement::with('user:id,name,avatar_url') // Eager load the author's details
+            ->latest() // Order by the newest
+            ->take(5)  // Limit to 5 for the dashboard
+            ->get()
+            ->map(function ($announcement) {
+                // We format the data here to match what the Vue component expects
+                return [
+                    'id' => $announcement->id,
+                    'title' => $announcement->title,
+                    'content' => $announcement->content,
+                    'author' => $announcement->user,
+                    'created_at_formatted' => $announcement->created_at->format('M d, Y'),
+                ];
+            });
 
+        // --- RENDER VIEW ---
         return Inertia::render('Dashboard', [
             'user' => $user->append('avatar_url'),
             'attendance' => $attendanceData,
@@ -137,16 +143,24 @@ class DashboardController extends Controller
             ],
             'projects' => $projects,
             'myTasks' => $myTasks,
-            // [+] Pass the new performance data to the Vue component
-            'taskStats' => $taskStats,
-            'timeStats' => $timeStats,
-            'leaveStats' => $leaveStats,
+            'announcements' => $announcements, // NEW: Pass announcements to the view
         ]);
     }
 
+    /**
+     * Get color for different leave types
+     */
     private function getLeaveColor($leaveType)
     {
-        $colors = ['annual' => '#3B82F6', 'sick' => '#EF4444', 'personal' => '#F59E0B', 'emergency' => '#DC2626', 'maternity' => '#EC4899', 'paternity' => '#8B5CF6'];
-        return $colors[$leaveType] ?? '#6B7280';
+        $colors = [
+            'annual' => '#3B82F6',    // Blue
+            'sick' => '#EF4444',      // Red
+            'personal' => '#F59E0B',  // Amber
+            'emergency' => '#DC2626', // Dark Red
+            'maternity' => '#EC4899', // Pink
+            'paternity' => '#8B5CF6', // Purple
+        ];
+
+        return $colors[$leaveType] ?? '#6B7280'; // Default gray
     }
 }

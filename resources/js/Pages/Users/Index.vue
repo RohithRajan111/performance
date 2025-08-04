@@ -35,6 +35,7 @@ const form = useForm({
     password: '',
     password_confirmation: '',
     role: '',
+    designation: '',
     work_mode: '',
     team_id: '',
     parent_id: '',
@@ -214,6 +215,13 @@ function handleImageUpload(e) {
                         <input v-model="form.email" id="email" type="email" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                         <InputError class="mt-2" :message="form.errors.email" />
                     </div>
+
+                     <div>
+                        <label for="designation" class="block text-sm font-medium text-slate-700">Designation / Job Title</label>
+                        <input v-model="form.designation" id="designation" type="text" placeholder="e.g., Software Engineer" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                        <InputError class="mt-2" :message="form.errors.designation" />
+                    </div>
+
                     <div>
                         <label for="image" class="block text-sm font-medium text-slate-700">Profile Image</label>
                         <div class="mt-2 flex items-center gap-4">
