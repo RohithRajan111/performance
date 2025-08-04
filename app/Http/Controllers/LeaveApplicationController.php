@@ -32,14 +32,37 @@ class LeaveApplicationController extends Controller
         return redirect()->route('leave.index')->with('success', 'Leave application submitted.');
     }
 
+    public function approveCompOff(Request $request, User $user)
+    {
+        $request->validate([
+            'comp_off_days' => ['required', 'numeric', 'min:0.5'],
+        ]);
+
+        $daysToCredit = $request->input('comp_off_days');
+
+        // Increment user's comp_off_balance
+        $user->increment('comp_off_balance', $daysToCredit);
+
+        // Optionally notify user of new comp off balance (implement notification if desired)
+        // $user->notify(new CompOffApprovedNotification($daysToCredit));
+
+        return redirect()->back()->with('success', "Compensatory off of {$daysToCredit} days credited to user.");
+    }
+
     public function update(UpdateLeaveRequest $request, LeaveApplication $leave_application, UpdateLeave $updateLeaveStatus)
     {
         $data = $request->validated();
+        $status = $data['status'];
+        $rejectReason = $data['rejection_reason'] ?? null;
 
-        $status = $data['status'];  // string 'approved' or 'rejected'
-        $rejectionReason = $data['rejection_reason'] ?? null;  // string or null
+        $updateLeaveStatus->handle($leave_application, $status, $rejectReason);
 
-        $updateLeaveStatus->handle($leave_application, $status, $rejectionReason);
+        // Deduct comp_off_balance on approval if leave type is compensatory
+        if ($status === 'approved' && $leave_application->leave_type === 'compensatory') {
+            $user = $leave_application->user;
+            $user->decrement('comp_off_balance', $leave_application->leave_days);
+            $user->save();
+        }
 
         return Redirect::back()->with('success', 'Application status updated.');
     }

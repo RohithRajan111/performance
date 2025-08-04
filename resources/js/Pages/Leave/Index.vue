@@ -11,9 +11,10 @@ import interactionPlugin from '@fullcalendar/interaction'
 
 
 const props = defineProps({
-  leaveRequests: Object,      // Paginated leave requests
+  leaveRequests: Object,      
   highlightedDates: Array,
   remainingLeaveBalance: Number,
+  compOffBalance: Number,
 })
 
 const page = usePage()
@@ -28,6 +29,8 @@ const leaveColors = {
   maternity: '#ec4899',
   paternity: '#6366f1',
   rejected: '#b91c1c',
+  wfh: '#0ea5e9',
+  compensatory: '#16a34a',
 }
 
 const leaveFormSection = ref(null)
@@ -235,15 +238,86 @@ watch([calendarEvents, selectedDates], () => {
 
 const leaveTypeDescriptions = {
   annual: {
-    title: "Annual Leave",
-    summary: "Planned time off with advance notice",
-    details: [
-      "For vacations, personal time, or other planned absences",
-      "Should be requested at least 7 days in advance",
-      "Requires manager approval",
-      "Balance accrued based on tenure (typically 15-25 days/year)"
-    ],
-  },
+  title: "Annual Leave",
+  summary: "Planned time off with advance notice",
+  details: [
+    "For vacations, personal time, or other planned absences",
+    "Should be requested at least 7 days in advance",
+    "Requires manager approval",
+    "Balance accrued based on tenure (typically 15-25 days/year)"
+  ],
+},
+personal: {
+  title: "Personal Leave",
+  summary: "Leave for personal matters that require time off",
+  details: [
+    "Used for personal errands, family commitments, or important events",
+    "Typically requires 3 days advance notice",
+    "Needs manager approval",
+    "May be limited in total number of days per year"
+  ],
+},
+sick: {
+  title: "Sick Leave",
+  summary: "Leave granted for health-related issues",
+  details: [
+    "For medical appointments, illness, or recovery",
+    "Usually requires a medical certificate for extended absences",
+    "Accrued based on company policy and local law",
+    "May be paid or unpaid as per policy"
+  ],
+},
+emergency: {
+  title: "Emergency Leave",
+  summary: "Leave granted for urgent, unforeseen personal emergencies",
+  details: [
+    "For unexpected situations like medical emergencies, accidents, or urgent family matters",
+    "Typically granted on short notice with flexible approval process",
+    "Usually paid leave, separate from annual or personal leave balances",
+    "Helps employees manage critical situations without penalty"
+  ],
+},
+maternity: {
+  title: "Maternity Leave",
+  summary: "Leave for childbirth and related recovery",
+  details: [
+    "Granted to employees during pregnancy and after birth",
+    "Duration varies by jurisdiction (typically 12-26 weeks)",
+    "May require medical documentation",
+    "Protected under employment law"
+  ],
+},
+paternity: {
+  title: "Paternity Leave",
+  summary: "Leave for fathers around the time of childbirth",
+  details: [
+    "Allows bonding with the newborn and support for the family",
+    "Usually shorter duration than maternity leave (e.g., 1-2 weeks)",
+    "Requires notice as per company policy",
+    "Protected under employment law"
+  ],
+},
+workfromhome: {
+  title: "Work From Home",
+  summary: "Remote work arrangements without leaving leave balance",
+  details: [
+    "Allows employees to work remotely for full or partial days",
+    "Usually does not deduct from leave balance",
+    "Requires manager’s approval",
+    "Supports flexible work-life balance"
+  ],
+},
+compensatory: {
+  title: "Compensatory Leave",
+  summary: "Leave earned by working extra hours or on holidays",
+  details: [
+    "Credited when working during official holidays or overtime",
+    "Used as paid time off in lieu of extra hours worked",
+    "Requires manager approval to grant and to use",
+    "Usually tracked separately to enforce usage policies"
+  ],
+},
+
   // add other leave types as needed here
 }
 
@@ -251,6 +325,7 @@ const leaveTypeTags = {
   sick: 'bg-pink-100 text-pink-600',
   casual: 'bg-blue-100 text-blue-600',
   compensatory: 'bg-green-100 text-green-600',
+  wfh: 'bg-cyan-100 text-cyan-600',
   default: 'bg-gray-100 text-gray-600',
 }
 
@@ -449,7 +524,15 @@ function submitEditReason() {
           <div class="space-y-4">
             <div class="bg-blue-50 p-4 rounded-lg">
               <div class="text-sm font-medium text-gray-700">Remaining Leave Balance</div>
-              <div class="text-2xl font-bold text-blue-600 mt-1">{{ props.remainingLeaveBalance }} day{{ props.remainingLeaveBalance !== 1 ? 's' : '' }}</div>
+<div class="text-2xl font-bold text-blue-600 mt-1">
+  <template v-if="form.leave_type === 'compensatory'">
+    {{ props.compOffBalance }} day{{ props.compOffBalance !== 1 ? 's' : '' }}
+  </template>
+  <template v-else>
+    {{ props.remainingLeaveBalance }} day{{ props.remainingLeaveBalance !== 1 ? 's' : '' }}
+  </template>
+</div>
+
             </div>
             <div>
               <InputLabel for="leave_type" value="Leave Type" class="text-sm font-medium text-gray-700 mb-1" />
@@ -461,6 +544,8 @@ function submitEditReason() {
                 <option value="emergency">Emergency Leave</option>
                 <option value="maternity">Maternity Leave</option>
                 <option value="paternity">Paternity Leave</option>
+                <option value="wfh">Work From Home</option>
+                <option value="compensatory">Compensatory Off</option>
               </select>
               <InputError :message="form.errors.leave_type" />
               <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">

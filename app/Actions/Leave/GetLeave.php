@@ -42,6 +42,12 @@ class GetLeave
         if (in_array($leaveType, ['maternity', 'paternity'])) {
             return $leaveType;
         }
+        if ($leaveType === 'wfh') {
+            return 'wfh';
+        }
+        if ($leaveType === 'compensatory') {
+            return 'compensatory';
+        }
 
         return 'unknown';
     }
@@ -54,6 +60,7 @@ class GetLeave
     {
         $user = Auth::user();
         $remainingLeaveBalance = $user->getRemainingLeaveBalance();
+        $compOffBalance = $user->comp_off_balance ?? 0;
 
         // Always fetch only logged-in user's leave requests, regardless of role
         $requests = LeaveApplication::with(['user:id,name'])
@@ -82,6 +89,7 @@ class GetLeave
             'canManage' => false, // since you do NOT want manage all requests here
             'highlightedDates' => $highlighted,
             'remainingLeaveBalance' => $remainingLeaveBalance,
+            'compOffBalance' => $compOffBalance,
         ];
     }
 }

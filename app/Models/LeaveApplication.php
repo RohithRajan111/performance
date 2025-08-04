@@ -27,6 +27,7 @@ class LeaveApplication extends Model
         'approved_at',
         'rejection_reason',
         'supporting_document_path',
+        'comp_off_balance',
     ];
 
     protected $casts = [
