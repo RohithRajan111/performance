@@ -8,10 +8,12 @@ import { ref, computed, watch } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
+const showColors = ref(true)
+
 
 
 const props = defineProps({
-  leaveRequests: Object,      
+  leaveRequests: Object,
   highlightedDates: Array,
   remainingLeaveBalance: Number,
   compOffBalance: Number,
@@ -82,10 +84,15 @@ const calendarEvents = computed(() =>
       end: ev.end
         ? toISODateOnly(new Date(new Date(ev.end + 'T00:00:00').getTime() + 86400000))
         : ev.start,
-      color: leaveColors[ev.color_category] || '#9ca3af',
+      backgroundColor: showColors.value
+        ? (leaveColors[ev.color_category] || '#9ca3af')
+        : 'transparent',   // Use transparent instead of gray
+      borderColor: 'transparent', // Remove border color as well
       title: ev.title,
     }))
 )
+
+
 
 function getSelectionBackground() {
   const [start, end] = selectedDates.value
@@ -232,9 +239,12 @@ const calendarOptions = ref({
   },
 })
 
-watch([calendarEvents, selectedDates], () => {
+watch([calendarEvents, selectedDates, showColors], () => {
   calendarOptions.value.events = [...calendarEvents.value, ...getSelectionBackground()]
 }, { deep: true })
+
+
+
 
 const leaveTypeDescriptions = {
   annual: {
@@ -318,7 +328,6 @@ compensatory: {
   ],
 },
 
-  // add other leave types as needed here
 }
 
 const leaveTypeTags = {
@@ -443,6 +452,9 @@ function submitEditReason() {
     }
   )
 }
+
+
+
 </script>
 
 <template>
@@ -481,6 +493,7 @@ function submitEditReason() {
         </div>
 
         <div class="space-y-3 flex flex-col justify-between">
+
           <button @click="scrollToLeaveForm" class="w-full text-left bg-blue-600 text-white p-4 rounded-lg shadow-sm hover:bg-blue-700 transition font-medium">
             Apply Leave
           </button>
@@ -499,10 +512,33 @@ function submitEditReason() {
           <h3 class="text-lg font-semibold text-gray-900">New Leave Request</h3>
           <p class="mt-1 text-sm text-gray-500">Select dates and provide details for your leave</p>
         </div>
+
         <form @submit.prevent="submitApplication" class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6" enctype="multipart/form-data">
           <div class="lg:col-span-2 space-y-4">
             <div class="flex items-center justify-between">
-              <InputLabel value="Select Dates" class="text-sm font-medium text-gray-700" />
+              <div class="flex items-center mb-3 space-x-3">
+                <label class="text-sm font-medium text-gray-700 select-none">
+                  Color-code leave types
+                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  :aria-checked="showColors.toString()"
+                  @click="showColors = !showColors"
+                  :class="[
+                    'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
+                    showColors ? 'bg-blue-600' : 'bg-gray-300',
+                  ]"
+                >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform',
+                    showColors ? 'translate-x-6' : 'translate-x-1',
+                ]"
+                ></span>
+                </button>
+              </div>
+              <InputLabel value="" class="text-sm font-medium text-gray-700" />
               <div class="text-xs font-medium px-3 py-1 rounded-full bg-blue-100 text-blue-800">
                 <template v-if="form.start_date && !form.end_date">
                   {{ form.start_date }}<span v-if="form.day_type === 'half'">({{ form.start_half_session || 'full day' }})</span>
@@ -521,16 +557,15 @@ function submitEditReason() {
           <div class="space-y-4">
             <div class="bg-blue-50 p-4 rounded-lg">
               <div class="text-sm font-medium text-gray-700">Remaining Leave Balance</div>
-<div class="text-2xl font-bold text-blue-600 mt-1">
-  <template v-if="form.leave_type === 'compensatory'">
-    {{ props.compOffBalance }} day{{ props.compOffBalance !== 1 ? 's' : '' }}
-  </template>
-  <template v-else>
-    {{ props.remainingLeaveBalance }} day{{ props.remainingLeaveBalance !== 1 ? 's' : '' }}
-  </template>
-</div>
-
-            </div>
+                <div class="text-2xl font-bold text-blue-600 mt-1">
+                  <template v-if="form.leave_type === 'compensatory'">
+                    {{ props.compOffBalance }} day{{ props.compOffBalance !== 1 ? 's' : '' }}
+                  </template>
+                  <template v-else>
+                    {{ props.remainingLeaveBalance }} day{{ props.remainingLeaveBalance !== 1 ? 's' : '' }}
+                  </template>
+                </div>
+              </div>
             <div>
               <InputLabel for="leave_type" value="Leave Type" class="text-sm font-medium text-gray-700 mb-1" />
               <select id="leave_type" v-model="form.leave_type" required
@@ -621,11 +656,10 @@ function submitEditReason() {
       </div>
 
       <!-- Your Requests Modal -->
-      <!-- CHANGE: Opacity increased for a darker overlay -->
       <div
         v-if="isRequestsModalVisible"
         @click.self="closeRequestsModal"
-        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
       >
         <div class="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto shadow-lg">
           <header class="flex justify-between items-center p-4 border-b">
@@ -636,7 +670,7 @@ function submitEditReason() {
               aria-label="Close"
               title="Close"
             >
-              ×
+              &times;
             </button>
           </header>
 
@@ -670,8 +704,9 @@ function submitEditReason() {
                       </span>
                     </td>
                     <td class="py-3 px-3 text-center">
-                      {{ formatLeaveDays(request.leave_days) }} day<span v-if="request.leave_days !== 1">s</span>
-                    </td>
+  {{ formatLeaveDays(request.leave_days) }} day<span v-if="request.leave_days !== 1">s</span>
+</td>
+
                     <td class="py-3 px-3 max-w-[200px] truncate">{{ request.reason }}</td>
                     <td class="py-3 px-3">
                       <p>
@@ -701,18 +736,19 @@ function submitEditReason() {
                       </div>
                     </td>
                     <td class="py-3 px-3 text-right">
-                      <button
-                        v-if="request.status === 'pending'"
-                        @click="openEditModal(request)"
-                        class="text-blue-600 hover:underline font-semibold text-sm"
-                      >Edit</button>
-                      <button
-                        v-if="request.status === 'pending'"
-                        @click="cancelLeave(request)"
-                        class="ml-2 text-red-600 hover:text-red-900 font-semibold text-sm"
-                      >Cancel</button>
-                      <span v-else class="text-gray-400">-</span>
-                    </td>
+  <button
+    v-if="request.status === 'pending'"
+    @click="openEditModal(request)"
+    class="text-blue-600 hover:underline font-semibold text-sm"
+  >Edit</button>
+  <button
+    v-if="request.status === 'pending'"
+    @click="cancelLeave(request)"
+    class="ml-2 text-red-600 hover:text-red-900 font-semibold text-sm"
+  >Cancel</button>
+  <span v-else class="text-gray-400">-</span>
+</td>
+
                   </tr>
                 </tbody>
               </table>
@@ -733,39 +769,37 @@ function submitEditReason() {
       </div>
 
       <!-- Edit Reason Modal -->
-      <!-- CHANGE: Opacity increased for a darker overlay -->
-      <div
-        v-if="isEditModalVisible"
-        @click.self="closeEditModal"
-        class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-      >
-        <form
-          @submit.prevent="submitEditReason"
-          class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
-        >
-          <h2 class="text-lg font-semibold mb-1">Edit Reason</h2>
-          <p class="text-sm text-gray-600 mb-2">Update the reason for your leave application:</p>
-          <textarea
-            v-model="editingReason"
-            rows="4"
-            required
-            class="w-full border rounded px-3 py-2"
-            :disabled="editProcessing"
-          ></textarea>
-          <div class="flex gap-2 justify-end pt-2">
-            <button type="button" @click="closeEditModal"
-              class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
-            <PrimaryButton type="submit" :disabled="editProcessing">
-              {{ editProcessing ? 'Saving...' : 'Save' }}
-            </PrimaryButton>
-          </div>
-        </form>
-      </div>
+<div
+  v-if="isEditModalVisible"
+  @click.self="closeEditModal"
+  class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+>
+  <form
+    @submit.prevent="submitEditReason"
+    class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 flex flex-col gap-4"
+  >
+    <h2 class="text-lg font-semibold mb-1">Edit Reason</h2>
+    <p class="text-sm text-gray-600 mb-2">Update the reason for your leave application:</p>
+    <textarea
+      v-model="editingReason"
+      rows="4"
+      required
+      class="w-full border rounded px-3 py-2"
+      :disabled="editProcessing"
+    ></textarea>
+    <div class="flex gap-2 justify-end pt-2">
+      <button type="button" @click="closeEditModal"
+        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+      <PrimaryButton type="submit" :disabled="editProcessing">
+        {{ editProcessing ? 'Saving...' : 'Save' }}
+      </PrimaryButton>
+    </div>
+  </form>
+</div>
 
 
       <!-- Leave Policy Modal -->
-      <!-- CHANGE: Opacity increased for a darker overlay -->
-      <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
+      <div v-if="isPolicyModalVisible" @click.self="closePolicyModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
         <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95" :class="{ 'scale-100': isPolicyModalVisible }">
           <div class="p-5 border-b flex justify-between items-center">
             <h3 class="text-xl font-semibold text-gray-800">Company Leave Policy</h3>
@@ -787,8 +821,7 @@ function submitEditReason() {
       </div>
 
       <!-- Upload Supporting Document Modal -->
-      <!-- CHANGE: Opacity increased for a darker overlay -->
-      <div v-if="isUploadModalVisible" @click.self="closeUploadModal" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
+      <div v-if="isUploadModalVisible" @click.self="closeUploadModal" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
         <form @submit.prevent="submitUpload" enctype="multipart/form-data" class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
           <h3 class="text-lg font-semibold text-gray-800 mb-2">Upload Supporting Document</h3>
           <input id="upload_file" type="file" @change="onUploadFileChange" accept=".pdf,.jpg,.jpeg,.png" required class="w-full" />
@@ -824,3 +857,4 @@ function submitEditReason() {
 .fc .fc-daygrid-day.fc-day-disabled .fc-daygrid-day-number { @apply text-gray-400; }
 select option { position: relative; }
 </style>
+ 
